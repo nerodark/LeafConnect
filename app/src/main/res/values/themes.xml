@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.LeafConnect" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">@color/green</item>
+        <item name="colorPrimaryDark">@color/green_dark</item>
+        <item name="colorAccent">@color/accent</item>
+        <!-- Brand splash: on API 31+ the system splash screen uses
+             windowSplashScreen*; on API 26-30 the green windowBackground
+             is the launch screen (content layouts paint white over it). -->
+        <item name="android:windowBackground">@color/green</item>
+        <item name="android:windowSplashScreenBackground">@color/green</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
+    </style>
+</resources>

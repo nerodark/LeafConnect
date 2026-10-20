@@ -1,0 +1,61 @@
+// AGP 9.x has built-in Kotlin support, so only the Android application plugin is applied.
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.leafconnect'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.leafconnect"
+        minSdk 26
+        targetSdk 35
+        versionCode 202429049
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        leaf {
+            storeFile file('../leafconnect.keystore')
+            storePassword 'leafconnect123'
+            keyAlias 'leafconnect'
+            keyPassword 'leafconnect123'
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            signingConfig signingConfigs.leaf
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.leaf
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+tasks.register('packageLeafConnect') {
+    group = 'build'
+    description = 'Produces LeafConnect.apk from the debug build.'
+    dependsOn 'assembleDebug'
+    doLast {
+        def src = layout.buildDirectory.file('outputs/apk/debug/app-debug.apk').get().asFile
+        def dst = layout.buildDirectory.file('outputs/apk/debug/LeafConnect.apk').get().asFile
+        dst.bytes = src.bytes
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.16.0'
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+}

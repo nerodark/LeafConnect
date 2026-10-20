@@ -1,0 +1,5 @@
+// Root build file — clean-room Kotlin reimplementation of the Nissan LEAF Canada app.
+// AGP 9.x provides built-in Kotlin support (no separate org.jetbrains.kotlin.android plugin).
+plugins {
+    id 'com.android.application' version '9.4.1' apply false
+}
