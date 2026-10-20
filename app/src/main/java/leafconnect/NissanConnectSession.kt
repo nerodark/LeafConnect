@@ -30,8 +30,11 @@ class NissanConnectSession(private val context: Context) {
 
     fun reauthenticate(): String {
         val prefs = SecurePreferences.getInstance(context)
-        val email = prefs.getString("email") ?: return "expired"
-        val password = prefs.getString("password") ?: return "expired"
+        // Credentials not kept (Keep-credentials off) is NOT an expiry: the
+        // current token is still valid for this run, we just can't mint a new
+        // one. Callers treat "not_kept" as "proceed with the current token".
+        val email = prefs.getString("email") ?: return "not_kept"
+        val password = prefs.getString("password") ?: return "not_kept"
 
         val body = JSONObject().apply {
             put("authenticate", JSONObject().apply {

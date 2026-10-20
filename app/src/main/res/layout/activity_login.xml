@@ -47,6 +47,59 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="@string/login" />
+
+        <!-- Keep credentials: persist email/password for next launch.
+             Auto-login: on launch, log in straight to the home screen with
+             the saved credentials. Each row = box + text, vertically centered
+             so the text always lines up with its box. Tapping the row toggles. -->
+        <LinearLayout
+            android:id="@+id/row_keep_credentials"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <CheckBox
+                android:id="@+id/cb_keep_credentials"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="false"
+                android:focusable="false" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/keep_credentials"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/row_auto_login"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <CheckBox
+                android:id="@+id/cb_auto_login"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="false"
+                android:focusable="false" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/auto_login"
+                android:textSize="16sp" />
+        </LinearLayout>
     </LinearLayout>
     </ScrollView>
 

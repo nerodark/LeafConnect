@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.appcompat.app.AppCompatActivity
@@ -39,6 +40,45 @@ class LoginActivity : AppCompatActivity() {
         val etUsername = findViewById<EditText>(R.id.et_username)
         val etPassword = findViewById<EditText>(R.id.et_password)
         val btnLogin = findViewById<Button>(R.id.btn_login)
+        val cbKeep = findViewById<CheckBox>(R.id.cb_keep_credentials)
+        val cbAuto = findViewById<CheckBox>(R.id.cb_auto_login)
+        val prefs = SecurePreferences.getInstance(this)
+
+        // The whole row (box + text) toggles the checkbox. Auto-login is
+        // persisted the moment the box is toggled — NOT on login — so the
+        // preference only changes when the user checks (or unchecks) it.
+        findViewById<android.view.View>(R.id.row_keep_credentials).setOnClickListener {
+            cbKeep.isChecked = !cbKeep.isChecked
+            prefs.put("keep_credentials", if (cbKeep.isChecked) "1" else "0")
+            // Unchecking Keep credentials clears the STORED credentials
+            // immediately (the fields on screen stay as they are).
+            if (!cbKeep.isChecked) {
+                prefs.remove("email")
+                prefs.remove("password")
+            }
+        }
+        findViewById<android.view.View>(R.id.row_auto_login).setOnClickListener {
+            cbAuto.isChecked = !cbAuto.isChecked
+            prefs.put("auto_login", if (cbAuto.isChecked) "1" else "0")
+        }
+
+        // Pre-fill saved credentials (Keep credentials) and, when auto-login
+        // is on, log straight into the home screen on launch. The checkbox
+        // states themselves persist across launches.
+        cbKeep.isChecked = (prefs.getString("keep_credentials") ?: "0") == "1"
+        cbAuto.isChecked = (prefs.getString("auto_login") ?: "0") == "1"
+        val savedEmail = prefs.getString("email") ?: ""
+        val savedPass = prefs.getString("password") ?: ""
+        if (savedEmail.isNotEmpty()) etUsername.setText(savedEmail)
+        if (savedPass.isNotEmpty()) etPassword.setText(savedPass)
+        // Auto-login when the preference is checked and credentials are
+        // present — except right after a manual LOGOUT, which must land on
+        // this screen and stay (the preference stays checked).
+        val justOut = HomeActivity.justLoggedOut
+        HomeActivity.justLoggedOut = false
+        if (!justOut && (prefs.getString("auto_login") ?: "0") == "1" && savedEmail.isNotEmpty() && savedPass.isNotEmpty()) {
+            doLogin(savedEmail, savedPass, keepCreds = true, autoLogin = true)
+        }
 
         btnLogin.setOnClickListener {
             val email = etUsername.text.toString().trim()
@@ -60,11 +100,11 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             etPassword.error = null
-            doLogin(email, password)
+            doLogin(email, password, keepCreds = cbKeep.isChecked, autoLogin = cbAuto.isChecked)
         }
     }
 
-    private fun doLogin(email: String, password: String) {
+    private fun doLogin(email: String, password: String, keepCreds: Boolean, autoLogin: Boolean) {
         showOverlay()
         Thread {
             try {
@@ -81,6 +121,14 @@ class LoginActivity : AppCompatActivity() {
                 prefs.put("email", email)
                 prefs.put("password", password)
                 prefs.put("token", authToken)
+                // Neither checkbox preference is written on login — both are
+                // persisted only when the user toggles their box.
+                // Keep credentials: only the checkbox decides whether the
+                // credentials survive this login.
+                if (!keepCreds) {
+                    prefs.remove("email")
+                    prefs.remove("password")
+                }
                 prefs.put("accountId", result.optString("accountID", ""))
                 // Bump the login generation: the home screen fetches live
                 // battery data only when a login is newer than the cached

@@ -5,4 +5,6 @@
     <string name="log_out" tools:ignore="Typos">Log out</string>
     <string name="hint_user">Email</string>
     <string name="hint_password">Password</string>
+    <string name="keep_credentials">Keep credentials</string>
+    <string name="auto_login">Auto-login</string>
 </resources>

@@ -30,6 +30,16 @@
                     android:layout_weight="1"
                     android:orientation="vertical" />
 
+                <!-- Last requested command + its outcome (success / failed).
+                     Under the vehicle card, pinned to the bottom with the
+                     LOGOUT button. -->
+                <TextView
+                    android:id="@+id/cmd_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:textSize="13sp" />
+
                 <!-- Inside the scrollview with the vehicles, pinned to the
                      bottom of the screen when the content is short. Same
                      fixed width as the LOGIN button. -->

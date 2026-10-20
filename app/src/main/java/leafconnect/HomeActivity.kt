@@ -24,6 +24,7 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var overlay: FrameLayout
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var container: LinearLayout
+    private lateinit var cmdStatus: TextView
 
     // Incremented on every loadVehicles() so a stale fetch thread never writes
     // into a freshly rebuilt UI (e.g. a swipe refresh that superseded it).
@@ -70,6 +71,7 @@ class HomeActivity : AppCompatActivity() {
         overlay = findViewById(R.id.overlay_home)
         swipeRefresh = findViewById(R.id.swipe_refresh)
         container = findViewById(R.id.container_home)
+        cmdStatus = findViewById(R.id.cmd_status)
 
         session = NissanConnectSession(this)
         session.onUnauthorized = {
@@ -144,9 +146,12 @@ class HomeActivity : AppCompatActivity() {
             t.start()
         }
 
-        // Check if credentials exist (no network call)
+        // Check if a session exists (no network call). The gate is the session
+        // token — present on every successful login, independent of whether the
+        // credentials are kept (Keep-credentials off wipes email/password but the
+        // token stays, so a fresh login must not bounce back to the login screen).
         val prefs = SecurePreferences.getInstance(this)
-        if (prefs.contains("email") && prefs.contains("password")) {
+        if ((prefs.getString("token") ?: "").isNotEmpty()) {
             // The home screen appears immediately (vehicle cards, buttons,
             // placeholder status) and the live battery status is fetched behind
             // the loading overlay; the spinner stays up until the data arrives.
@@ -247,16 +252,18 @@ class HomeActivity : AppCompatActivity() {
             }
 
             addVehicleButton(buttonRow, "START TEMP") {
-                vehicleAction(vin) { v2 ->
+                vehicleAction(vin, "START TEMP") { v2 ->
                     val ok = v2.requestClimateControlOn()
+                    setCommandStatus("START TEMP", ok)
                     runOnUiThread {
                         android.widget.Toast.makeText(this@HomeActivity, if (ok) "Temperature control started" else "Temperature control start failed", android.widget.Toast.LENGTH_LONG).show()
                     }
                 }
             }
             addVehicleButton(buttonRow, "STOP TEMP") {
-                vehicleAction(vin) { v2 ->
+                vehicleAction(vin, "STOP TEMP") { v2 ->
                     val ok = v2.requestClimateControlOff()
+                    setCommandStatus("STOP TEMP", ok)
                     runOnUiThread {
                         android.widget.Toast.makeText(this@HomeActivity, if (ok) "Temperature control stopped" else "Temperature control stop failed", android.widget.Toast.LENGTH_LONG).show()
                     }
@@ -272,8 +279,9 @@ class HomeActivity : AppCompatActivity() {
                 setPadding(0, 8, 0, 8)
             }
             addVehicleButton(chargeRow, "START CHARGE") {
-                vehicleAction(vin) { v2 ->
+                vehicleAction(vin, "START CHARGE") { v2 ->
                     val ok = v2.requestChargingStart()
+                    setCommandStatus("START CHARGE", ok)
                     runOnUiThread {
                         android.widget.Toast.makeText(this@HomeActivity, if (ok) "Charging started" else "Charging start failed", android.widget.Toast.LENGTH_LONG).show()
                     }
@@ -381,8 +389,9 @@ class HomeActivity : AppCompatActivity() {
             android.widget.Toast.makeText(this, "Account ID missing — log out and back in", android.widget.Toast.LENGTH_LONG).show()
             return
         }
-        vehicleAction(vin) { v2 ->
+        vehicleAction(vin, if (lock) "LOCK" else "UNLOCK") { v2 ->
             val ok = if (lock) v2.requestDoorLock(DEFAULT_PIN, accountId) else v2.requestDoorUnlock(DEFAULT_PIN, accountId)
+            setCommandStatus(if (lock) "LOCK" else "UNLOCK", ok)
             runOnUiThread {
                 android.widget.Toast.makeText(this@HomeActivity, if (ok) (if (lock) "Lock command sent" else "Unlock command sent") else (if (lock) "Lock failed" else "Unlock failed"), android.widget.Toast.LENGTH_LONG).show()
             }
@@ -394,7 +403,7 @@ class HomeActivity : AppCompatActivity() {
     // sandsNotificationEvent.sandsNotificationEvent.body.location from the
     // refreshVehicleLocator response and drops a marker at (lat, lon).
     private fun locateVehicle(vin: String) {
-        vehicleAction(vin) { v2 ->
+        vehicleAction(vin, "LOCATE") { v2 ->
             val body = v2.requestLocation()
             val location = body?.optJSONObject("sandsNotificationEvent")
                 ?.optJSONObject("sandsNotificationEvent")
@@ -404,9 +413,11 @@ class HomeActivity : AppCompatActivity() {
             val lon = location?.optString("longitudeDMS")?.trim()
             runOnUiThread {
                 if (location == null || lat.isNullOrEmpty() || lon.isNullOrEmpty()) {
+                    setCommandStatus("LOCATE", false)
                     android.widget.Toast.makeText(this@HomeActivity, "Location not available", android.widget.Toast.LENGTH_LONG).show()
                     return@runOnUiThread
                 }
+                setCommandStatus("LOCATE", true)
                 openInMaps(lat, lon)
             }
         }
@@ -430,9 +441,15 @@ class HomeActivity : AppCompatActivity() {
 
     companion object {
         private const val DEFAULT_PIN = "00000"
+
+        // Set by a manual LOGOUT so the LoginActivity it opens does NOT fire
+        // auto-login (the preference stays checked/persisted). Consumed once
+        // by LoginActivity; a cold app start has it false, so auto-login
+        // triggers there as normal.
+        var justLoggedOut = false
     }
 
-    private fun vehicleAction(vin: String, block: (NissanConnectClient) -> Unit) {
+    private fun vehicleAction(vin: String, label: String, block: (NissanConnectClient) -> Unit) {
         showOverlay()
         val myCancel = cancelGeneration
         val t = Thread {
@@ -445,6 +462,7 @@ class HomeActivity : AppCompatActivity() {
                     // meantime (an interrupted socket read is the expected
                     // "error" when the user cancels).
                     if (myCancel == cancelGeneration) {
+                        setCommandStatus(label, false)
                         runOnUiThread {
                             android.widget.Toast.makeText(this@HomeActivity, e.message, android.widget.Toast.LENGTH_LONG).show()
                         }
@@ -461,10 +479,30 @@ class HomeActivity : AppCompatActivity() {
         t.start()
     }
 
+    // Records the last requested command + outcome in the status line under
+    // the vehicle card (green = success, red = failed).
+    private fun setCommandStatus(label: String, ok: Boolean) {
+        runOnUiThread {
+            cmdStatus.text = "Last command: $label — ${if (ok) "SUCCESS" else "FAILED"}"
+            cmdStatus.setTextColor(if (ok) 0xFF1B5E20.toInt() else 0xFFC62828.toInt())
+        }
+    }
+
     private fun logOut() {
         val prefs = SecurePreferences.getInstance(this)
-        for (key in listOf("email", "password", "token", "cookies", "JsessionId", "vehicles", "accountId")) {
+        // A manual logout must not immediately auto-login: signal the
+        // LoginActivity we're about to open (the preference itself is left
+        // checked and persisted).
+        justLoggedOut = true
+        // Keep credentials: the email/password survive the logout (the form
+        // is pre-filled next time) unless the user opted out of keeping them.
+        val keepCreds = (prefs.getString("keep_credentials") ?: "0") == "1"
+        for (key in listOf("token", "cookies", "JsessionId", "vehicles", "accountId")) {
             prefs.remove(key)
+        }
+        if (!keepCreds) {
+            prefs.remove("email")
+            prefs.remove("password")
         }
         NissanConnectCache.clear(this)
         // Stale the cache marker: the next login must fetch fresh data.
