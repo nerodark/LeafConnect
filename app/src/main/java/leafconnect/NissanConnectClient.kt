@@ -9,6 +9,12 @@ class NissanConnectClient(private val session: NissanConnectSession, private val
         return response.body
     }
 
+    @Suppress("unused")
+    fun requestVehicleData(): JSONObject? {
+        val response = session.request("/auth/vehicles/$vin/getVehicleData", "GET")
+        return response.body
+    }
+
     fun requestChargingStart(): Boolean {
         val response = session.request("/battery/vehicles/$vin/remoteChargingRequest", "POST", JSONObject())
         return response.statusCode in 200..299

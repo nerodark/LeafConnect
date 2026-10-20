@@ -4,39 +4,44 @@
     android:layout_height="match_parent"
     android:background="@color/white">
 
-    <LinearLayout
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_refresh"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:layout_height="match_parent">
 
-        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-            android:id="@+id/swipe_refresh"
+        <!-- fillViewport + weight=1 on the vehicle container: the LOGOUT
+             button scrolls with the vehicles but is pushed to the bottom of
+             the screen whenever the content is shorter than the screen. -->
+        <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:padding="24dp">
 
-            <ScrollView
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="24dp">
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
                 <LinearLayout
                     android:id="@+id/container_home"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:orientation="vertical" />
-            </ScrollView>
-        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-        <!-- Pinned at the bottom of the screen, same fixed width as the LOGIN button -->
-        <Button
-            android:id="@+id/btn_log_out"
-            android:layout_width="300dp"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="24dp"
-            android:text="@string/log_out" />
-    </LinearLayout>
+                <!-- Inside the scrollview with the vehicles, pinned to the
+                     bottom of the screen when the content is short. Same
+                     fixed width as the LOGIN button. -->
+                <Button
+                    android:id="@+id/btn_log_out"
+                    android:layout_width="300dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:text="@string/log_out" />
+            </LinearLayout>
+        </ScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- Full-screen loading overlay — tap it (or CANCEL) to cancel the
          in-progress fetch -->
@@ -69,5 +74,21 @@
                 android:layout_marginTop="16dp"
                 android:text="CANCEL" />
         </LinearLayout>
+    </FrameLayout>
+
+    <!-- Splash hold: white screen with the app icon, shown for 1s on launch
+         (the system splash is dismissed at the first frame). -->
+    <FrameLayout
+        android:id="@+id/splash_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/white">
+
+        <ImageView
+            android:layout_width="288dp"
+            android:layout_height="288dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_launcher" />
     </FrameLayout>
 </FrameLayout>

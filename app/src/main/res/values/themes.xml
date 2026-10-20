@@ -4,11 +4,11 @@
         <item name="colorPrimary">@color/green</item>
         <item name="colorPrimaryDark">@color/green_dark</item>
         <item name="colorAccent">@color/accent</item>
-        <!-- Brand splash: on API 31+ the system splash screen uses
-             windowSplashScreen*; on API 26-30 the green windowBackground
-             is the launch screen (content layouts paint white over it). -->
-        <item name="android:windowBackground">@color/green</item>
-        <item name="android:windowSplashScreenBackground">@color/green</item>
+        <!-- Launch screen: on API 31+ the system splash screen uses
+             windowSplashScreen*; on API 26-30 windowBackground is the
+             launch screen (content layouts paint white over it). -->
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:windowSplashScreenBackground">@color/white</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
     </style>
 </resources>

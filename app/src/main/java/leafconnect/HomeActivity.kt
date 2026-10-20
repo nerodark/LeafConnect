@@ -50,7 +50,22 @@ class HomeActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         installSplashScreen()
+        createContent()
+    }
+
+    private fun createContent() {
         setContentView(R.layout.activity_home)
+
+        // Splash hold: the system splash is dismissed at the first frame, so a
+        // white overlay with the icon keeps the splash look for 1s.
+        val splashOverlay = findViewById<FrameLayout>(R.id.splash_overlay)
+        Handler(Looper.getMainLooper()).postDelayed({
+            splashOverlay.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction { splashOverlay.visibility = View.GONE }
+                .start()
+        }, 1_000)
 
         overlay = findViewById(R.id.overlay_home)
         swipeRefresh = findViewById(R.id.swipe_refresh)
@@ -179,28 +194,27 @@ class HomeActivity : AppCompatActivity() {
             val vin = v.optString("uvi", "")
             val nickname = v.optString("nickname", "")
             val modelname = v.optString("modelname", "")
-            val modelyear = v.optString("modelyear", "")
 
-            val nameParts = mutableListOf<String>()
-            if (modelname.isNotEmpty()) nameParts.add(modelname)
-            if (modelyear.isNotEmpty()) nameParts.add(modelyear)
-            if (nickname.isNotEmpty()) nameParts.add("($nickname)")
-            val vehicleName = nameParts.joinToString()
+            // Manufacturer + model + model year come from the offline VIN decode
+            // (the backend's modelyear field is wrong); the nickname stays in
+            // parentheses.
+            val vehicleName = vehicleName(vin, modelname, nickname)
 
-            // Vehicle name header with the VIN next to it
+            // Vehicle name header: name on the first line, VIN on the second.
+            // Both wrap to further lines if too wide for the screen.
             val nameRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
+                orientation = LinearLayout.VERTICAL
                 setPadding(0, 24, 0, 8)
             }
             nameRow.addView(TextView(this).apply {
                 text = vehicleName
                 textSize = 18f
+                setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
             })
             nameRow.addView(TextView(this).apply {
                 text = vin
                 textSize = 13f
-                setPadding(12, 0, 0, 0)
+                setPadding(0, 2, 0, 0)
             })
             container.addView(nameRow)
 
@@ -314,6 +328,19 @@ class HomeActivity : AppCompatActivity() {
         }
         activeThreads.add(fetchThread)
         fetchThread.start()
+    }
+
+    // The header shows manufacturer + model + model year from the offline VIN
+    // decode (the backend's modelyear field is unreliable — it reports 2018 for
+    // this 2024 Leaf). The user's nickname is kept in parentheses.
+    private fun vehicleName(vin: String, modelname: String, nickname: String): String {
+        val info = (VinDecoder.decode(vin) as? VinResult.Success)?.info
+        val parts = mutableListOf<String>()
+        info?.manufacturer?.takeIf { it.isNotEmpty() }?.let { parts.add(it) }
+        if (modelname.isNotEmpty()) parts.add(modelname)
+        info?.modelYear?.let { parts.add(it.toString()) }
+        val base = parts.joinToString().replace(",", " ").uppercase()
+        return if (nickname.isNotEmpty()) "$base ($nickname)" else base
     }
 
     private fun formatVehicleStatus(bat: JSONObject?, fallbackTempRecords: JSONObject?): String {

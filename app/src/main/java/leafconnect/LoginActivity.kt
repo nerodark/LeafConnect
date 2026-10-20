@@ -22,6 +22,17 @@ class LoginActivity : AppCompatActivity() {
         installSplashScreen()
         setContentView(R.layout.activity_login)
 
+        // Splash hold: the system splash is dismissed at the first frame, so a
+        // white overlay with the icon keeps the splash look for 1s.
+        val splashOverlay = findViewById<FrameLayout>(R.id.splash_overlay)
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            splashOverlay.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction { splashOverlay.visibility = View.GONE }
+                .start()
+        }, 1_000)
+
         overlay = findViewById(R.id.overlay_login)
         session = NissanConnectSession(this)
 
@@ -32,7 +43,23 @@ class LoginActivity : AppCompatActivity() {
         btnLogin.setOnClickListener {
             val email = etUsername.text.toString().trim()
             val password = etPassword.text.toString().trim()
-            if (email.isEmpty() || password.isEmpty()) return@setOnClickListener
+            if (email.isEmpty()) {
+                etUsername.error = "Email is required"
+                etUsername.requestFocus()
+                return@setOnClickListener
+            }
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                etUsername.error = "Enter a valid email address"
+                etUsername.requestFocus()
+                return@setOnClickListener
+            }
+            etUsername.error = null
+            if (password.isEmpty()) {
+                etPassword.error = "Password is required"
+                etPassword.requestFocus()
+                return@setOnClickListener
+            }
+            etPassword.error = null
             doLogin(email, password)
         }
     }
