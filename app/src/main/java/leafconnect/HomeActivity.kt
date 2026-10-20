@@ -493,7 +493,7 @@ class HomeActivity : AppCompatActivity() {
     // failure.
     private fun setCommandStatus(label: String, ok: Boolean) {
         runOnUiThread {
-            cmdStatus.text = "Last command: $label — ${if (ok) "SUCCESS" else "FAILED"}"
+            cmdStatus.text = getString(R.string.cmd_status, label, if (ok) getString(R.string.cmd_success) else getString(R.string.cmd_failed))
             cmdStatus.visibility = View.VISIBLE
             val density = resources.displayMetrics.density
             val banner = android.graphics.drawable.GradientDrawable()

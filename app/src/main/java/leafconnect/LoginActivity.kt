@@ -47,7 +47,7 @@ class LoginActivity : AppCompatActivity() {
         // The whole row (box + text) toggles the checkbox. Auto-login is
         // persisted the moment the box is toggled — NOT on login — so the
         // preference only changes when the user checks (or unchecks) it.
-        findViewById<android.view.View>(R.id.row_keep_credentials).setOnClickListener {
+        findViewById<View>(R.id.row_keep_credentials).setOnClickListener {
             cbKeep.isChecked = !cbKeep.isChecked
             prefs.put("keep_credentials", if (cbKeep.isChecked) "1" else "0")
             // Unchecking Keep credentials clears the STORED credentials
@@ -57,7 +57,7 @@ class LoginActivity : AppCompatActivity() {
                 prefs.remove("password")
             }
         }
-        findViewById<android.view.View>(R.id.row_auto_login).setOnClickListener {
+        findViewById<View>(R.id.row_auto_login).setOnClickListener {
             cbAuto.isChecked = !cbAuto.isChecked
             prefs.put("auto_login", if (cbAuto.isChecked) "1" else "0")
         }
@@ -77,7 +77,7 @@ class LoginActivity : AppCompatActivity() {
         val justOut = HomeActivity.justLoggedOut
         HomeActivity.justLoggedOut = false
         if (!justOut && (prefs.getString("auto_login") ?: "0") == "1" && savedEmail.isNotEmpty() && savedPass.isNotEmpty()) {
-            doLogin(savedEmail, savedPass, keepCreds = true, autoLogin = true)
+            doLogin(savedEmail, savedPass, keepCreds = true)
         }
 
         btnLogin.setOnClickListener {
@@ -100,11 +100,11 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             etPassword.error = null
-            doLogin(email, password, keepCreds = cbKeep.isChecked, autoLogin = cbAuto.isChecked)
+            doLogin(email, password, keepCreds = cbKeep.isChecked)
         }
     }
 
-    private fun doLogin(email: String, password: String, keepCreds: Boolean, autoLogin: Boolean) {
+    private fun doLogin(email: String, password: String, keepCreds: Boolean) {
         showOverlay()
         Thread {
             try {

@@ -7,4 +7,7 @@
     <string name="hint_password">Password</string>
     <string name="keep_credentials">Keep credentials</string>
     <string name="auto_login">Auto-login</string>
+    <string name="cmd_status">Last command: %1$s — %2$s</string>
+    <string name="cmd_success">SUCCESS</string>
+    <string name="cmd_failed">FAILED</string>
 </resources>
