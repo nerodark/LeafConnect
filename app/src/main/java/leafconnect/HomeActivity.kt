@@ -58,15 +58,21 @@ class HomeActivity : AppCompatActivity() {
         setContentView(R.layout.activity_home)
 
         // Splash hold: the system splash is dismissed at the first frame, so a
-        // white overlay with the icon keeps the splash look for 1s.
+        // white overlay with the icon keeps the splash look for 1s. Skipped
+        // when we arrive from the login screen (the user just saw the app —
+        // no second splash between login and home).
         val splashOverlay = findViewById<FrameLayout>(R.id.splash_overlay)
-        Handler(Looper.getMainLooper()).postDelayed({
-            splashOverlay.animate()
-                .alpha(0f)
-                .setDuration(300)
-                .withEndAction { splashOverlay.visibility = View.GONE }
-                .start()
-        }, 1_000)
+        if (intent?.getBooleanExtra("from_login", false) == true) {
+            splashOverlay.visibility = View.GONE
+        } else {
+            Handler(Looper.getMainLooper()).postDelayed({
+                splashOverlay.animate()
+                    .alpha(0f)
+                    .setDuration(300)
+                    .withEndAction { splashOverlay.visibility = View.GONE }
+                    .start()
+            }, 1_000)
+        }
 
         overlay = findViewById(R.id.overlay_home)
         swipeRefresh = findViewById(R.id.swipe_refresh)
@@ -450,6 +456,9 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun vehicleAction(vin: String, label: String, block: (NissanConnectClient) -> Unit) {
+        // A new action starts with a clean status line: the previous
+        // command's banner is cleared before the loading spinner comes up.
+        runOnUiThread { cmdStatus.visibility = View.GONE }
         showOverlay()
         val myCancel = cancelGeneration
         val t = Thread {
@@ -479,11 +488,22 @@ class HomeActivity : AppCompatActivity() {
         t.start()
     }
 
-    // Records the last requested command + outcome in the status line under
-    // the vehicle card (green = success, red = failed).
+    // Records the last requested command + outcome in the status line on top
+    // of the vehicle list — a light-green banner on success, light-red on
+    // failure.
     private fun setCommandStatus(label: String, ok: Boolean) {
         runOnUiThread {
             cmdStatus.text = "Last command: $label — ${if (ok) "SUCCESS" else "FAILED"}"
+            cmdStatus.visibility = View.VISIBLE
+            val density = resources.displayMetrics.density
+            val banner = android.graphics.drawable.GradientDrawable()
+            banner.cornerRadius = 8 * density
+            banner.setColor(if (ok) 0xFFC8E6C9.toInt() else 0xFFFFCDD2.toInt())
+            cmdStatus.background = banner
+            cmdStatus.setPadding(
+                (12 * density).toInt(), (8 * density).toInt(),
+                (12 * density).toInt(), (8 * density).toInt()
+            )
             cmdStatus.setTextColor(if (ok) 0xFF1B5E20.toInt() else 0xFFC62828.toInt())
         }
     }

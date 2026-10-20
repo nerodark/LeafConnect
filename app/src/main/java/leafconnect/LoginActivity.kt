@@ -197,7 +197,7 @@ class LoginActivity : AppCompatActivity() {
                 // itself, keeping its spinner up until the data arrives.
                 runOnUiThread {
                     hideOverlay()
-                    startActivity(Intent(this, HomeActivity::class.java))
+                    startActivity(Intent(this, HomeActivity::class.java).putExtra("from_login", true))
                     finish()
                 }
             } catch (e: Exception) {
