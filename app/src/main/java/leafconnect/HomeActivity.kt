@@ -89,9 +89,9 @@ class HomeActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_log_out).setOnClickListener { logOut() }
 
-        // Tap the overlay (or CANCEL) to cancel the in-progress fetch and get
-        // the buttons back immediately.
-        overlay.setOnClickListener { cancelRefresh() }
+        // Only the CANCEL button cancels the in-progress fetch (tapping the
+        // overlay just absorbs the touch so nothing behind it is tappable).
+        overlay.setOnClickListener {}
         findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelRefresh() }
 
         swipeRefresh.setOnRefreshListener {

@@ -12,10 +12,14 @@
         <!-- fillViewport + weight=1 on the vehicle container: the LOGOUT
              button scrolls with the vehicles but is pushed to the bottom of
              the screen whenever the content is shorter than the screen. -->
+        <!-- fitsSystemWindows: on devices whose window draws under the nav
+             bar (tablets with 3-button nav), inset the scroll content so the
+             bottom-pinned LOGOUT button is never covered by the system bar. -->
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fillViewport="true"
+            android:fitsSystemWindows="true"
             android:padding="24dp">
 
             <LinearLayout
@@ -54,8 +58,8 @@
         </ScrollView>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <!-- Full-screen loading overlay — tap it (or CANCEL) to cancel the
-         in-progress fetch -->
+    <!-- Full-screen loading overlay — CANCEL (not the overlay itself)
+         cancels the in-progress fetch -->
     <FrameLayout
         android:id="@+id/overlay_home"
         android:layout_width="match_parent"
