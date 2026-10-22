@@ -4,9 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -21,7 +23,7 @@ import org.json.JSONObject
 class HomeActivity : AppCompatActivity() {
 
     private lateinit var session: NissanConnectSession
-    private lateinit var overlay: FrameLayout
+    private lateinit var overlay: View
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var container: LinearLayout
     private lateinit var cmdStatus: TextView
@@ -50,6 +52,10 @@ class HomeActivity : AppCompatActivity() {
     // One-shot watchdog for the INITIAL fetch only; removed the moment any
     // overlay is hidden so it can never fire during a later action.
     private var initialWatchdog: Runnable? = null
+
+    // Per-vehicle status views: first = Battery/Temp row (with refresh
+    // arrow), second = Plugin/Range rows (full width).
+    private data class StatusViews(val first: TextView, val second: TextView)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -97,69 +103,7 @@ class HomeActivity : AppCompatActivity() {
         overlay.setOnClickListener {}
         findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelRefresh() }
 
-        swipeRefresh.setOnRefreshListener {
-            // Show the loading overlay immediately — before the re-authenticate
-            // round-trip — and keep it up for the WHOLE round, so the buttons
-            // stay blocked and the UI always says "fetch in progress". The
-            // overlay goes down when the data arrives — or when the user
-            // cancels (tap the overlay / CANCEL).
-            showOverlay()
-            // A new round supersedes the previous one: drop its watchdogs
-            // FIRST, otherwise the stale 180 s "Connection is slow" toast
-            // (and 480 s "Still loading") fires out of nowhere — even after
-            // the new round already finished.
-            slowRunnable?.let { Handler(Looper.getMainLooper()).removeCallbacks(it) }
-            hardRunnable?.let { Handler(Looper.getMainLooper()).removeCallbacks(it) }
-            val myId = ++refreshId
-            val myCancel = cancelGeneration
-            // Soft watchdog: the round is abnormally slow — tell the user, but
-            // keep the overlay up (it is the "fetch in progress" indicator).
-            val slow = Runnable {
-                android.widget.Toast.makeText(this, "Connection is slow — status will update when ready", android.widget.Toast.LENGTH_LONG).show()
-            }
-            slowRunnable = slow
-            Handler(Looper.getMainLooper()).postDelayed(slow, 180_000)
-            // Hard watchdog: last-resort release so the overlay can never block
-            // the screen forever (worst case round: re-auth retries + slow
-            // battery endpoint + socket retry can run many minutes).
-            val hard = Runnable {
-                hideOverlay()
-                android.widget.Toast.makeText(this, "Still loading — status will update when ready", android.widget.Toast.LENGTH_LONG).show()
-            }
-            hardRunnable = hard
-            Handler(Looper.getMainLooper()).postDelayed(hard, 480_000)
-            val t = Thread {
-                try {
-                    // Never let re-authenticate kill the refresh: on any
-                    // failure the battery status is still requested below.
-                    val result = try {
-                        session.reauthenticate()
-                    } catch (_: Exception) {
-                        "error"
-                    }
-                    runOnUiThread {
-                        // This round was canceled (or superseded) — do nothing.
-                        if (myId != refreshId || myCancel != cancelGeneration) return@runOnUiThread
-                        Handler(Looper.getMainLooper()).removeCallbacks(slow)
-                        Handler(Looper.getMainLooper()).removeCallbacks(hard)
-                        swipeRefresh.isRefreshing = false
-                        if (result == "expired") {
-                            startActivity(Intent(this, LoginActivity::class.java))
-                            finish()
-                        } else {
-                            // Always request fresh battery status after a swipe
-                            // (even when re-authenticate failed); the overlay
-                            // stays up until the data arrives.
-                            loadVehicles(null, true)
-                        }
-                    }
-                } finally {
-                    activeThreads.remove(Thread.currentThread())
-                }
-            }
-            activeThreads.add(t)
-            t.start()
-        }
+        swipeRefresh.setOnRefreshListener { refreshStatus() }
 
         // Check if a session exists (no network call). The gate is the session
         // token — present on every successful login, independent of whether the
@@ -203,6 +147,47 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    // One full refresh round: live battery/temp status. Shared by the
+    // swipe-down gesture and the round-arrow refresh button next to the
+    // status values.
+    // Fetch-first: NO pre-login — the current token is used as-is, and the
+    // fetch loop re-authenticates only if the server answers 401 (and the
+    // vehicle list is re-synced only in that case).
+    private fun refreshStatus() {
+        // Show the loading overlay immediately and keep it up for the WHOLE
+        // round, so the buttons stay blocked and the UI always says "fetch
+        // in progress". The overlay goes down when the data arrives — or
+        // when the user cancels (CANCEL).
+        showOverlay()
+        // A new round supersedes the previous one: drop its watchdogs
+        // FIRST, otherwise the stale 180 s "Connection is slow" toast
+        // (and 480 s "Still loading") fires out of nowhere — even after
+        // the new round already finished.
+        slowRunnable?.let { Handler(Looper.getMainLooper()).removeCallbacks(it) }
+        hardRunnable?.let { Handler(Looper.getMainLooper()).removeCallbacks(it) }
+        ++refreshId
+        // Soft watchdog: the round is abnormally slow — tell the user, but
+        // keep the overlay up (it is the "fetch in progress" indicator).
+        val slow = Runnable {
+            android.widget.Toast.makeText(this, "Connection is slow — status will update when ready", android.widget.Toast.LENGTH_LONG).show()
+        }
+        slowRunnable = slow
+        Handler(Looper.getMainLooper()).postDelayed(slow, 180_000)
+        // Hard watchdog: last-resort release so the overlay can never block
+        // the screen forever (worst case round: re-auth retry + slow
+        // battery endpoint + socket retry can run many minutes).
+        val hard = Runnable {
+            hideOverlay()
+            android.widget.Toast.makeText(this, "Still loading — status will update when ready", android.widget.Toast.LENGTH_LONG).show()
+        }
+        hardRunnable = hard
+        Handler(Looper.getMainLooper()).postDelayed(hard, 480_000)
+        swipeRefresh.isRefreshing = false
+        // The fetch itself (and its 401 self-healing) runs inside
+        // loadVehicles.
+        loadVehicles(null, true)
+    }
+
     private fun loadVehicles(initialBattery: JSONObject?, showLoading: Boolean) {
         val prefs = SecurePreferences.getInstance(this)
         // Early exit: never leave the swipe overlay up.
@@ -210,7 +195,7 @@ class HomeActivity : AppCompatActivity() {
         val vehicles = JSONArray(vehiclesStr)
         container.removeAllViews()
 
-        val entries = mutableListOf<Triple<String, JSONObject?, TextView>>()
+        val entries = mutableListOf<Triple<String, JSONObject?, StatusViews>>()
 
         for (i in 0 until vehicles.length()) {
             val v = vehicles.getJSONObject(i)
@@ -245,13 +230,54 @@ class HomeActivity : AppCompatActivity() {
             // login flow it is already fresh; otherwise placeholder until the
             // live fetch returns.
             val tempRecords = v.optJSONObject("interiorTempRecords")
-            val infoView = TextView(this).apply {
+            // Status block: Battery/Temp share a row with the refresh arrow
+            // (same round as the swipe-down refresh); Plugin/Range stay on
+            // their own full-width rows below.
+            val (firstText, secondText) = formatStatusParts(initialBattery?.optJSONObject(vin), tempRecords)
+            val firstView = TextView(this).apply {
+                textSize = 14f
+                text = firstText
+            }
+            val secondView = TextView(this).apply {
                 textSize = 14f
                 setPadding(0, 0, 0, 8)
+                text = secondText
+                visibility = if (secondText.isEmpty()) View.GONE else View.VISIBLE
             }
-            infoView.text = formatVehicleStatus(initialBattery?.optJSONObject(vin), tempRecords)
-            container.addView(infoView)
-            entries.add(Triple(vin, tempRecords, infoView))
+            val statusRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val refreshBtn = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                setImageResource(R.drawable.ic_refresh)
+                // Right of the text: a little left margin so it sits right
+                // next to the Battery/Temp values.
+                val d = resources.displayMetrics.density
+                setPadding((8 * d).toInt(), (8 * d).toInt(), 0, (8 * d).toInt())
+                isClickable = true
+                isFocusable = true
+                contentDescription = getString(R.string.refresh_status)
+                setOnClickListener { refreshStatus() }
+            }
+            // WRAP_CONTENT (no weight): the text takes only what it needs,
+            // so the refresh arrow sits right next to it — NOT pushed to
+            // the far edge of the screen.
+            statusRow.addView(firstView, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ))
+            statusRow.addView(refreshBtn)
+            val statusBlock = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+            statusBlock.addView(statusRow)
+            statusBlock.addView(secondView)
+            container.addView(statusBlock)
+            entries.add(Triple(vin, tempRecords, StatusViews(firstView, secondView)))
 
             // Door lock row — above the temp row, matching the original app
             // (LOCK / UNLOCK with a PIN authorization key).
@@ -309,6 +335,20 @@ class HomeActivity : AppCompatActivity() {
             container.addView(chargeRow)
         }
 
+        // No vehicles on the account: a centered placeholder instead of a
+        // blank page (the LOGOUT button stays pinned below).
+        if (vehicles.length() == 0) {
+            val empty = TextView(this).apply {
+                text = getString(R.string.no_vehicles)
+                setTextColor(0xFF757575.toInt())
+                textSize = 16f
+                gravity = Gravity.CENTER
+                val d = resources.displayMetrics.density
+                setPadding(0, (48 * d).toInt(), 0, 0)
+            }
+            container.addView(empty)
+        }
+
         if (initialBattery != null) return
 
         // No live data yet: fetch battery status sequentially — one vehicle at
@@ -320,24 +360,39 @@ class HomeActivity : AppCompatActivity() {
         val loginGen = (prefs.getString("login_gen") ?: "0").toLong()
         val fetchThread = Thread {
             try {
-                for ((vin, tempRecords, infoView) in entries) {
-                if (gen != fetchGeneration) return@Thread
-                try {
-                    val vehicle = NissanConnectClient(session, vin)
-                    val bat = vehicle.requestBatteryStatus()
-                    if (bat != null) {
-                        NissanConnectCache.put(this, vin, bat.toString())
-                        // Cache is now fresh for this login: no refetch until
-                        // a newer login bumps login_gen.
-                        prefs.put("cache_gen", loginGen.toString())
+                // 401 self-heal lives in NissanConnectClient (central path):
+                // re-authenticate once and retry; if re-auth fails the
+                // session is dead → onSessionDead logs out. No pre-login —
+                // the current token is used as-is until the server says it
+                // is expired.
+                for ((vin, tempRecords, views) in entries) {
+                    if (gen != fetchGeneration) break
+                    try {
+                        val client = NissanConnectClient(session, vin)
+                        var sessionDead = false
+                        client.onSessionDead = {
+                            sessionDead = true
+                            // Not a manual logout: auto-login stays armed.
+                            runOnUiThread { logOut(manual = false) }
+                        }
+                        val bat = client.requestBatteryStatus()
+                        if (sessionDead) break
+                        if (bat != null) {
+                            NissanConnectCache.put(this, vin, bat.toString())
+                            // Cache is now fresh for this login: no refetch until
+                            // a newer login bumps login_gen.
+                            prefs.put("cache_gen", loginGen.toString())
+                        }
+                        if (gen != fetchGeneration) continue
+                        runOnUiThread {
+                            val (firstText, secondText) = formatStatusParts(bat, tempRecords)
+                            views.first.text = firstText
+                            views.second.text = secondText
+                            views.second.visibility = if (secondText.isEmpty()) View.GONE else View.VISIBLE
+                        }
+                    } catch (_: Exception) {
                     }
-                    if (gen != fetchGeneration) continue
-                    runOnUiThread {
-                        infoView.text = formatVehicleStatus(bat, tempRecords)
-                    }
-                } catch (_: Exception) {
                 }
-            }
             if (showLoading) {
                 runOnUiThread { hideOverlay() }
             } else {
@@ -369,25 +424,28 @@ class HomeActivity : AppCompatActivity() {
         return if (nickname.isNotEmpty()) "$base ($nickname)" else base
     }
 
-    private fun formatVehicleStatus(bat: JSONObject?, fallbackTempRecords: JSONObject?): String {
-        val lines = mutableListOf<String>()
+    // Split status: first = Battery/Temp rows (share a row with the refresh
+    // arrow), second = Plugin/Range rows (stay full width).
+    private fun formatStatusParts(bat: JSONObject?, fallbackTempRecords: JSONObject?): Pair<String, String> {
+        val first = mutableListOf<String>()
+        val second = mutableListOf<String>()
         if (bat != null) {
             val records = bat.optJSONObject("batteryRecords")
             val soc = records?.optJSONObject("batteryStatus")?.optJSONObject("soc")?.optDouble("value", -1.0) ?: -1.0
-            if (soc >= 0) lines.add("Battery: ${soc.toInt()}%")
+            if (soc >= 0) first.add("Battery: ${soc.toInt()}%")
             val temp = bat.optJSONObject("temperatureRecords")?.optString("inc_temp", "") ?: ""
-            if (temp.isNotEmpty()) lines.add("Temp: $temp°C")
+            if (temp.isNotEmpty()) first.add("Temp: $temp°C")
             val plugin = records?.optString("pluginState", "") ?: ""
-            if (plugin.isNotEmpty()) lines.add("Plugin: $plugin")
+            if (plugin.isNotEmpty()) second.add("Plugin: $plugin")
             val rangeOn = records?.optDouble("cruisingRangeAcOn", -1.0) ?: -1.0
             val rangeOff = records?.optDouble("cruisingRangeAcOff", -1.0) ?: -1.0
-            if (rangeOn >= 0) lines.add("Range: ${rangeOn.toInt()} km (HVAC on) / ${rangeOff.toInt()} km (HVAC off)")
+            if (rangeOn >= 0) second.add("Range: ${rangeOn.toInt()} km (HVAC on) / ${rangeOff.toInt()} km (HVAC off)")
         }
-        if (lines.isEmpty() && fallbackTempRecords != null) {
-            lines.add("Temp: ${fallbackTempRecords.optDouble("inc_temp", 0.0)}°C")
+        if (first.isEmpty() && fallbackTempRecords != null) {
+            first.add("Temp: ${fallbackTempRecords.optDouble("inc_temp", 0.0)}°C")
         }
-        if (lines.isEmpty()) lines.add("Status: --")
-        return lines.joinToString("\n")
+        if (first.isEmpty()) first.add("Status: --")
+        return Pair(first.joinToString("\n"), second.joinToString("\n"))
     }
 
     private fun addVehicleButton(row: LinearLayout, label: String, action: () -> Unit) {
@@ -475,8 +533,16 @@ class HomeActivity : AppCompatActivity() {
         val myCancel = cancelGeneration
         val t = Thread {
             try {
+                // 401 self-heal lives in NissanConnectClient (central path):
+                // one re-authenticate + one retry; if re-auth fails the
+                // session is dead → onSessionDead logs out to the login
+                // screen.
+                val vehicle = NissanConnectClient(session, vin)
+                vehicle.onSessionDead = {
+                    // Not a manual logout: auto-login stays armed.
+                    runOnUiThread { logOut(manual = false) }
+                }
                 try {
-                    val vehicle = NissanConnectClient(session, vin)
                     block(vehicle)
                 } catch (e: Exception) {
                     // Only report if this action wasn't canceled in the
@@ -520,12 +586,13 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun logOut() {
+    private fun logOut(manual: Boolean = true) {
         val prefs = SecurePreferences.getInstance(this)
         // A manual logout must not immediately auto-login: signal the
         // LoginActivity we're about to open (the preference itself is left
-        // checked and persisted).
-        justLoggedOut = true
+        // checked and persisted). An expiry-triggered logout (session died,
+        // re-auth failed) keeps auto-login armed.
+        if (manual) justLoggedOut = true
         // Keep credentials: the email/password survive the logout (the form
         // is pre-filled next time) unless the user opted out of keeping them.
         val keepCreds = (prefs.getString("keep_credentials") ?: "0") == "1"

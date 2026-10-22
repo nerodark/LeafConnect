@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="26"
+    android:viewportHeight="24">
+    <!-- 270° arc (spinner-style, open at top) with an arrow head at the end.
+         Viewport widened to 26 and content shifted +2 so the WIDE triangle
+         (9.6 base) can be centered on the arc's end point (5,12) without
+         clipping its base corners. -->
+    <path
+        android:strokeColor="@color/green"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M14,3 A9,9 0 1 1 5,12" />
+    <!-- Wide, short triangle, centered on the arc end (x=5). -->
+    <path
+        android:fillColor="@color/green"
+        android:pathData="M5,3.5 L0.2,14.2 L9.8,14.2 Z" />
+</vector>

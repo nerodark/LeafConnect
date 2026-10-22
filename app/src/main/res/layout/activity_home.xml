@@ -19,13 +19,21 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fillViewport="true"
-            android:fitsSystemWindows="true"
-            android:padding="24dp">
+            android:fitsSystemWindows="true">
 
+            <!-- The 24dp content padding lives on the INNER layout, not the
+                 ScrollView: fitsSystemWindows on the ScrollView REPLACES its
+                 XML padding with the system-bar insets — on a tablet the
+                 insets are ~0, so the 24dp vanished and text hit the screen
+                 edge. Inner padding is always applied, on top of the insets. -->
+            <!-- 0dp inside a fillViewport ScrollView: the high-performance
+                 form (no wrap_content measure pass). No layout_weight — a
+                 ScrollView is not a LinearLayout, weight has no effect. -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:layout_height="0dp"
+                android:orientation="vertical"
+                android:padding="24dp">
 
                 <!-- Last requested command + its outcome (success / failed).
                      On top of the vehicle list, bold and prominent. -->
@@ -38,10 +46,12 @@
                     android:textStyle="bold"
                     android:visibility="gone" />
 
+                <!-- 0dp + weight 1: the high-performance form for a weighted
+                     child (wrap_content would force an extra measure pass). -->
                 <LinearLayout
                     android:id="@+id/container_home"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="0dp"
                     android:layout_weight="1"
                     android:orientation="vertical" />
 
@@ -60,36 +70,32 @@
 
     <!-- Full-screen loading overlay — CANCEL (not the overlay itself)
          cancels the in-progress fetch -->
-    <FrameLayout
+    <!-- The overlay is a single LinearLayout (the FrameLayout wrapper with a
+         single child was unnecessary); the dark background lives here. -->
+    <LinearLayout
         android:id="@+id/overlay_home"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#80000000"
         android:clickable="true"
         android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical"
         android:visibility="gone">
 
-        <LinearLayout
+        <ProgressBar
+            android:id="@+id/pb_home"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/btn_cancel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <ProgressBar
-                android:id="@+id/pb_home"
-                style="?android:attr/progressBarStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-
-            <Button
-                android:id="@+id/btn_cancel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="CANCEL" />
-        </LinearLayout>
-    </FrameLayout>
+            android:layout_marginTop="16dp"
+            android:text="@android:string/cancel" />
+    </LinearLayout>
 
     <!-- Splash hold: white screen with the app icon, shown for 1s on launch
          (the system splash is dismissed at the first frame). -->

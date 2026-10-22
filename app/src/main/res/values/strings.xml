@@ -8,6 +8,8 @@
     <string name="keep_credentials">Keep credentials</string>
     <string name="auto_login">Auto-login</string>
     <string name="cmd_status">Last command: %1$s — %2$s</string>
+    <string name="refresh_status">Refresh battery/temp status</string>
+    <string name="no_vehicles">No vehicles found for this account</string>
     <string name="cmd_success">SUCCESS</string>
     <string name="cmd_failed">FAILED</string>
 </resources>

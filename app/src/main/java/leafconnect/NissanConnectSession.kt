@@ -11,6 +11,11 @@ class NissanConnectSession(private val context: Context) {
 
     var onUnauthorized: (() -> Unit)? = null
 
+    // When true, 401s do NOT trigger onUnauthorized: the caller inspects
+    // statusCode and self-heals (re-authenticate + retry). Used by the
+    // battery-status fetch loop and the vehicle actions.
+    var suppressUnauthorized = false
+
     private val client: NissanConnectAuth = NissanConnectAuth.getInstance(context)
 
     fun login(email: String, password: String, country: String): JSONObject {
@@ -48,6 +53,11 @@ class NissanConnectSession(private val context: Context) {
         val response = client.makeRequestLogin(body, "POST", "/auth/authenticationForAAS")
         if (response.statusCode == 401) {
             onUnauthorized?.invoke()
+            // The credentials were rejected: clear auto-login so the next
+            // launch does not immediately try to log in with credentials
+            // the server no longer accepts (the login form will show the
+            // checkbox unchecked).
+            prefs.put("auto_login", "0")
             return "expired"
         }
         val json = response.body ?: return "error"
@@ -63,7 +73,7 @@ class NissanConnectSession(private val context: Context) {
         val path = if (endpoint.startsWith("/")) endpoint else "/$endpoint"
         val response = client.makeRequest(params ?: JSONObject(), method, path)
 
-        if (response.statusCode == 401) {
+        if (response.statusCode == 401 && !suppressUnauthorized) {
             onUnauthorized?.invoke()
         }
 
