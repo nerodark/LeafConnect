@@ -47,6 +47,9 @@ class HomeActivity : AppCompatActivity() {
     // cancel, or when superseded).
     private var slowRunnable: Runnable? = null
     private var hardRunnable: Runnable? = null
+    // One-shot watchdog for the INITIAL fetch only; removed the moment any
+    // overlay is hidden so it can never fire during a later action.
+    private var initialWatchdog: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,6 +104,12 @@ class HomeActivity : AppCompatActivity() {
             // overlay goes down when the data arrives — or when the user
             // cancels (tap the overlay / CANCEL).
             showOverlay()
+            // A new round supersedes the previous one: drop its watchdogs
+            // FIRST, otherwise the stale 180 s "Connection is slow" toast
+            // (and 480 s "Still loading") fires out of nowhere — even after
+            // the new round already finished.
+            slowRunnable?.let { Handler(Looper.getMainLooper()).removeCallbacks(it) }
+            hardRunnable?.let { Handler(Looper.getMainLooper()).removeCallbacks(it) }
             val myId = ++refreshId
             val myCancel = cancelGeneration
             // Soft watchdog: the round is abnormally slow — tell the user, but
@@ -173,13 +182,16 @@ class HomeActivity : AppCompatActivity() {
             val cached = NissanConnectCache.all(this)
             // Watchdog: if the initial live fetch takes abnormally long, release
             // the UI — the fetch keeps running and updates the text when done.
-            // (No-op when the fetch already finished and hid the overlay.)
-            Handler(Looper.getMainLooper()).postDelayed({
+            // Removed as soon as any overlay is hidden (see hideOverlay), so
+            // it can never fire during a later action.
+            val watchdog = Runnable {
                 if (overlay.isVisible) {
                     hideOverlay()
                     android.widget.Toast.makeText(this, "Still loading — status will update when ready", android.widget.Toast.LENGTH_LONG).show()
                 }
-            }, 180_000)
+            }
+            initialWatchdog = watchdog
+            Handler(Looper.getMainLooper()).postDelayed(watchdog, 180_000)
             if (loginGen > cacheGen || cached.length() == 0) {
                 loadVehicles(null, true)
             } else {
@@ -559,6 +571,10 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun hideOverlay() {
-        runOnUiThread { overlay.visibility = View.GONE }
+        runOnUiThread {
+            overlay.visibility = View.GONE
+            // Any overlay release retires the initial-fetch watchdog.
+            initialWatchdog?.let { Handler(Looper.getMainLooper()).removeCallbacks(it) }
+        }
     }
 }
