@@ -64,6 +64,17 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center_horizontal"
                     android:text="@string/log_out" />
+
+                <!-- Footnote: back-to-back commands can collide on the
+                     backend while the previous one is still processing. -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center_horizontal"
+                    android:text="@string/cmd_note"
+                    android:textColor="#757575"
+                    android:textSize="12sp" />
             </LinearLayout>
         </ScrollView>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

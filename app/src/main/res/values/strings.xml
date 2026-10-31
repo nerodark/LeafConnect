@@ -12,4 +12,5 @@
     <string name="no_vehicles">No vehicles found for this account</string>
     <string name="cmd_success">SUCCESS</string>
     <string name="cmd_failed">FAILED</string>
+    <string name="cmd_note">Note : A command might fail if a previous command is still in progress on Nissan\'s servers.</string>
 </resources>
