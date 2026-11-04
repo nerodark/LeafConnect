@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.LeafConnect" parent="Theme.AppCompat.Light.NoActionBar">
+    <!-- Shared base items for every API level. Theme.LeafConnect itself is
+         overridden in values-v31/ with the API 31+ splash attributes, which
+         must not appear in the base (NewApi: minSdk 26 < 31). -->
+    <style name="Theme.LeafConnectBase" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="colorPrimary">@color/green</item>
         <item name="colorPrimaryDark">@color/green_dark</item>
         <item name="colorAccent">@color/accent</item>
-        <!-- Launch screen: on API 31+ the system splash screen uses
-             windowSplashScreen*; on API 26-30 windowBackground is the
-             launch screen (content layouts paint white over it). -->
+        <!-- Launch screen: on API 26-30 the window background is the launch
+             screen. -->
         <item name="android:windowBackground">@color/white</item>
-        <item name="android:windowSplashScreenBackground">@color/white</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
     </style>
+
+    <style name="Theme.LeafConnect" parent="Theme.LeafConnectBase" />
 </resources>

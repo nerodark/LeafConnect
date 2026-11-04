@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+# One job, three gates, same as the README: assembleDebug, unit tests, lint.
+# The daemon JVM pin (gradle/gradle-daemon-jvm.properties) and the wrapper
+# pin the toolchain; Temurin 25 is installed to match the pin, so no JDK is
+# provisioned on the runner.
+jobs:
+  build-test-lint:
+    name: Build, test, lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
+      - name: Lint gate
+        run: ./gradlew :app:lintDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk

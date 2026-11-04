@@ -2,21 +2,48 @@ package leafconnect
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Patterns
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.leafconnect.R
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
+/**
+ * Login screen.
+ *
+ * Security rule for credentials: the password lives in CredentialStore (RAM)
+ * for the lifetime of the process, so the session can be re-established
+ * between launches. When "Keep credentials" is on, BOTH the email and the
+ * password are additionally persisted — encrypted by the Keystore-backed
+ * store — so auto-login survives a process restart; unchecking it drops both.
+ */
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var session: NissanConnectSession
     private lateinit var overlay: FrameLayout
+
+    /** Splash fade callback, tracked so onDestroy can drop it. */
+    private val splashHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Login runs on a worker thread; the token lets a request be aborted for
+     * real (Call.cancel) when the activity is destroyed. Thread.interrupt()
+     * never aborted the blocking socket read.
+     */
+    private val ioExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private var loginToken: CancellationToken? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,15 +51,24 @@ class LoginActivity : AppCompatActivity() {
         setContentView(R.layout.activity_login)
 
         // Splash hold: the system splash is dismissed at the first frame, so a
-        // white overlay with the icon keeps the splash look for 1s.
+        // white overlay with the icon keeps the splash look for 1s. First
+        // creation only: this activity survives rotation via configChanges,
+        // but it is still RECREATED on process restore and on config
+        // changes not covered by configChanges (density, locale, ...); on a
+        // recreation the user is already looking at the form, so no second
+        // splash.
         val splashOverlay = findViewById<FrameLayout>(R.id.splash_overlay)
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            splashOverlay.animate()
-                .alpha(0f)
-                .setDuration(300)
-                .withEndAction { splashOverlay.visibility = View.GONE }
-                .start()
-        }, 1_000)
+        if (savedInstanceState == null) {
+            splashHandler.postDelayed({
+                splashOverlay.animate()
+                    .alpha(0f)
+                    .setDuration(300)
+                    .withEndAction { splashOverlay.visibility = View.GONE }
+                    .start()
+            }, 1_000)
+        } else {
+            splashOverlay.visibility = View.GONE
+        }
 
         overlay = findViewById(R.id.overlay_login)
         session = NissanConnectSession(this)
@@ -50,8 +86,8 @@ class LoginActivity : AppCompatActivity() {
         findViewById<View>(R.id.row_keep_credentials).setOnClickListener {
             cbKeep.isChecked = !cbKeep.isChecked
             prefs.put("keep_credentials", if (cbKeep.isChecked) "1" else "0")
-            // Unchecking Keep credentials clears the STORED credentials
-            // immediately (the fields on screen stay as they are).
+            // Unchecking Keep credentials clears everything stored (the fields
+            // on screen stay as they are).
             if (!cbKeep.isChecked) {
                 prefs.remove("email")
                 prefs.remove("password")
@@ -62,40 +98,55 @@ class LoginActivity : AppCompatActivity() {
             prefs.put("auto_login", if (cbAuto.isChecked) "1" else "0")
         }
 
-        // Pre-fill saved credentials (Keep credentials) and, when auto-login
-        // is on, log straight into the home screen on launch. The checkbox
-        // states themselves persist across launches.
+        // Pre-fill the saved credentials (Keep credentials) and honor
+        // auto-login. The checkbox states themselves persist across launches.
         cbKeep.isChecked = (prefs.getString("keep_credentials") ?: "0") == "1"
         cbAuto.isChecked = (prefs.getString("auto_login") ?: "0") == "1"
         val savedEmail = prefs.getString("email") ?: ""
-        val savedPass = prefs.getString("password") ?: ""
         if (savedEmail.isNotEmpty()) etUsername.setText(savedEmail)
-        if (savedPass.isNotEmpty()) etPassword.setText(savedPass)
-        // Auto-login when the preference is checked and credentials are
-        // present — except right after a manual LOGOUT, which must land on
-        // this screen and stay (the preference stays checked).
+        etPassword.setText(CredentialStore.password ?: prefs.getString("password") ?: "")
+
+        // Auto-login when the preference is checked — except right after a
+        // manual LOGOUT, which must land on this screen and stay (the logout
+        // unchecks the preference; the flag pins the form regardless).
+        //
+        // The password is read from RAM first, falling back to the encrypted
+        // store (Keep credentials), so auto-login works after a process
+        // restart. Without any password there is still one usable path:
+        // a session token exists → open Home, which uses the token as-is and
+        // self-heals/re-logs-in on a 401 it cannot fix. A cold start with
+        // auto-login and neither has nothing to log in with, so the form is
+        // shown with the email pre-filled.
         val justOut = HomeActivity.justLoggedOut
         HomeActivity.justLoggedOut = false
-        if (!justOut && (prefs.getString("auto_login") ?: "0") == "1" && savedEmail.isNotEmpty() && savedPass.isNotEmpty()) {
-            doLogin(savedEmail, savedPass, keepCreds = true)
+        if (!justOut && (prefs.getString("auto_login") ?: "0") == "1") {
+            val storedPassword = CredentialStore.password ?: prefs.getString("password")
+            if (savedEmail.isNotEmpty() && !storedPassword.isNullOrEmpty()) {
+                doLogin(savedEmail, storedPassword, keepCreds = true)
+            } else if (!(prefs.getString("token") ?: "").isEmpty()) {
+                openHome(fromLogin = false)
+            }
         }
 
         btnLogin.setOnClickListener {
             val email = etUsername.text.toString().trim()
-            val password = etPassword.text.toString().trim()
+            // The password is used EXACTLY as typed: trailing/leading spaces
+            // are part of the password, so trimming it can silently break a
+            // valid login.
+            val password = etPassword.text.toString()
             if (email.isEmpty()) {
-                etUsername.error = "Email is required"
+                etUsername.error = getString(R.string.email_required)
                 etUsername.requestFocus()
                 return@setOnClickListener
             }
-            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                etUsername.error = "Enter a valid email address"
+            if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                etUsername.error = getString(R.string.email_invalid)
                 etUsername.requestFocus()
                 return@setOnClickListener
             }
             etUsername.error = null
             if (password.isEmpty()) {
-                etPassword.error = "Password is required"
+                etPassword.error = getString(R.string.password_required)
                 etPassword.requestFocus()
                 return@setOnClickListener
             }
@@ -104,109 +155,102 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        splashHandler.removeCallbacksAndMessages(null)
+        loginToken?.cancel()
+        loginToken = null
+        ioExecutor.shutdown()
+        try {
+            ioExecutor.awaitTermination(2, TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+        if (!ioExecutor.isTerminated) ioExecutor.shutdownNow()
+        super.onDestroy()
+    }
+
     private fun doLogin(email: String, password: String, keepCreds: Boolean) {
         showOverlay()
-        Thread {
+        val token = CancellationToken()
+        loginToken = token
+        ioExecutor.submit {
             try {
-                val result = session.login(email, password, "CA")
+                val result = session.login(email, password, "CA", token)
 
                 val authToken = result.optString("authToken", "")
                 if (authToken.isEmpty()) {
-                    runOnUiThread { showError("Login failed. Check your credentials.") }
-                    hideOverlay()
-                    return@Thread
+                    runOnUiThread {
+                        hideOverlay()
+                        showError(R.string.login_failed)
+                    }
+                    return@submit
                 }
 
                 val prefs = SecurePreferences.getInstance(this)
-                prefs.put("email", email)
-                prefs.put("password", password)
-                prefs.put("token", authToken)
-                // Neither checkbox preference is written on login — both are
-                // persisted only when the user toggles their box.
-                // Keep credentials: only the checkbox decides whether the
-                // credentials survive this login.
-                if (!keepCreds) {
+                // CredentialStore keeps the password in RAM for soft-login /
+                // re-authentication in this process. With Keep credentials on
+                // it is additionally persisted (encrypted) so auto-login
+                // survives a process restart; off drops both values.
+                CredentialStore.set(email, password)
+                if (keepCreds) {
+                    prefs.put("email", email)
+                    prefs.put("password", password)
+                } else {
                     prefs.remove("email")
                     prefs.remove("password")
                 }
+                prefs.put("token", authToken)
+                // Neither checkbox preference is written on login — both are
+                // persisted only when the user toggles their box.
                 prefs.put("accountId", result.optString("accountID", ""))
                 // Bump the login generation: the home screen fetches live
                 // battery data only when a login is newer than the cached
                 // data. Wake / rotation / restore carry no new login.
                 val loginGen = (prefs.getString("login_gen") ?: "0").toLong()
                 prefs.put("login_gen", (loginGen + 1).toString())
+                storeVehicles(result.optJSONArray("vehicles"), prefs)
 
-                // Store vehicles
-                val vehicles = result.optJSONArray("vehicles")
-                if (vehicles != null) {
-                    val storeVehicles = JSONArray()
-                    for (i in 0 until vehicles.length()) {
-                        val v = vehicles.getJSONObject(i)
-                        val sv = JSONObject()
-                        sv.put("uvi", v.optString("uvi", ""))
-                        sv.put("nickname", v.optString("nickname", ""))
-                        sv.put("modelname", v.optString("modelname", ""))
-                        sv.put("modelyear", v.optString("modelyear", ""))
-                        sv.put("interiorTempRecords", v.optJSONObject("interiorTempRecords") ?: JSONObject())
-                        storeVehicles.put(sv)
-                    }
-                    prefs.put("vehicles", storeVehicles.toString())
-                }
-
-                // Auto-refresh: reauthenticate to get live data
-                val liveResult = session.reauthenticate()
-                if (liveResult == "ok") {
-                    val livePrefs = SecurePreferences.getInstance(this)
-                    val liveEmail = livePrefs.getString("email") ?: email
-                    val livePass = livePrefs.getString("password") ?: password
-                    val liveBody = JSONObject().apply {
-                        put("authenticate", JSONObject().apply {
-                            put("userid", liveEmail)
-                            put("password", livePass)
-                            put("brand-s", "N")
-                            put("language-s", "EN")
-                            put("country", "CA")
-                        })
-                    }
-                    val liveResp = session.request("/auth/authenticationForAAS", "POST", liveBody)
-                    val liveJson = liveResp.body
-                    if (liveJson != null) {
-                        val liveToken = liveJson.optString("authToken", "")
-                        if (liveToken.isNotEmpty()) prefs.put("token", liveToken)
-                        val liveAccountId = liveJson.optString("accountID", "")
-                        if (liveAccountId.isNotEmpty()) prefs.put("accountId", liveAccountId)
-                        val liveVehicles = liveJson.optJSONArray("vehicles")
-                        if (liveVehicles != null) {
-                            val storeVehicles = JSONArray()
-                            for (i in 0 until liveVehicles.length()) {
-                                val v = liveVehicles.getJSONObject(i)
-                                val sv = JSONObject()
-                                sv.put("uvi", v.optString("uvi", ""))
-                                sv.put("nickname", v.optString("nickname", ""))
-                                sv.put("modelname", v.optString("modelname", ""))
-                                sv.put("modelyear", v.optString("modelyear", ""))
-                                sv.put("interiorTempRecords", v.optJSONObject("interiorTempRecords") ?: JSONObject())
-                                storeVehicles.put(sv)
-                            }
-                            prefs.put("vehicles", storeVehicles.toString())
-                        }
-                    }
-                }
-
-                // Home appears immediately; it fetches the live battery status
-                // itself, keeping its spinner up until the data arrives.
+                // No re-auth round-trip here: the login response is the live
+                // session. Home fetches battery status itself and self-heals
+                // a 401 through the client's central re-auth path.
                 runOnUiThread {
                     hideOverlay()
-                    startActivity(Intent(this, HomeActivity::class.java).putExtra("from_login", true))
-                    finish()
+                    openHome(fromLogin = true)
                 }
             } catch (e: Exception) {
-                runOnUiThread {
-                    hideOverlay()
-                    showError("Connection error: ${e.message}")
+                // A canceled login (activity finishing) throws from the
+                // aborted socket read: the screen is going away, so no error
+                // UI is owed.
+                if (!token.isCancelled) {
+                    runOnUiThread {
+                        hideOverlay()
+                        showError(R.string.connection_error, e.message ?: "")
+                    }
                 }
             }
-        }.start()
+        }
+    }
+
+    /** Trim the vehicle list down to the fields Home needs (keeps prefs small). */
+    private fun storeVehicles(vehicles: JSONArray?, prefs: SecurePreferences) {
+        if (vehicles == null) return
+        val storeVehicles = JSONArray()
+        for (i in 0 until vehicles.length()) {
+            val v = vehicles.getJSONObject(i)
+            val sv = JSONObject()
+            sv.put("uvi", v.optString("uvi", ""))
+            sv.put("nickname", v.optString("nickname", ""))
+            sv.put("modelname", v.optString("modelname", ""))
+            sv.put("modelyear", v.optString("modelyear", ""))
+            sv.put("interiorTempRecords", v.optJSONObject("interiorTempRecords") ?: JSONObject())
+            storeVehicles.put(sv)
+        }
+        prefs.put("vehicles", storeVehicles.toString())
+    }
+
+    private fun openHome(fromLogin: Boolean) {
+        startActivity(Intent(this, HomeActivity::class.java).putExtra("from_login", fromLogin))
+        finish()
     }
 
     private fun showOverlay() {
@@ -217,7 +261,7 @@ class LoginActivity : AppCompatActivity() {
         runOnUiThread { overlay.visibility = View.GONE }
     }
 
-    private fun showError(msg: String) {
-        android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show()
+    private fun showError(res: Int, vararg args: String) {
+        Toast.makeText(this, getString(res, *args), Toast.LENGTH_LONG).show()
     }
 }

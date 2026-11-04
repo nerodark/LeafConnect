@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!-- Filled in from the :app:lintDebug report, with a reason per entry.
+         The gate (abortOnError) fails on errors; the warnings below are
+         suppressed deliberately instead of fixed in code. -->
+
+    <!-- The repo ships exactly one launcher bitmap and no density variants;
+         fabricating mdpi/hdpi/xhdpi copies would only add bytes. -->
+    <issue id="IconLocation" severity="ignore" />
+
+    <!-- The build pins targetSdk 35, compileSdk 35 and the dependency
+         versions (see README: "the build pins AGP 9.4.1, Gradle 9.6.0,
+         compileSdk 35 and the dependency versions"); upgrading is a
+         deliberate project decision, not a lint fix. -->
+    <issue id="OldTargetApi" severity="ignore" />
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <issue id="GradleDependency" severity="ignore" />
+    <issue id="NewerVersionAvailable" severity="ignore" />
+
+    <!-- allowBackup="false" is the mechanism that keeps the encrypted
+         preferences out of device-to-device transfer; it is deprecated on
+         API 31+ but still required below it (minSdk 26). Adding
+         dataExtractionRules would be additive and, while we are opted out of
+         backup entirely, redundant. -->
+    <issue id="DataExtractionRules" severity="ignore" />
+
+    <!-- "Refreshing..." deliberately uses three periods, not the ellipsis
+         character: the user asked for the literal dots ("no ellipsis"), so
+         the typography nit is intentional, not an oversight. -->
+    <issue id="TypographyEllipsis" severity="ignore" />
+
+    <!-- The explicit FrameLayout root keeps the splash overlay's z-order
+         and the fitsSystemWindows notes self-documenting at the top of each
+         layout; a <merge> root saves one nesting level but obscures both.
+         Deliberate, not a correctness issue. -->
+    <issue id="MergeRootFrame" severity="ignore" />
+</lint>

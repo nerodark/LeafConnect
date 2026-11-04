@@ -3,42 +3,67 @@ plugins {
     id 'com.android.application'
 }
 
+// Signing material is NEVER in the repo: keystore.properties (gitignored)
+// points at a keystore created on the developer's machine. Without the file,
+// the release build stays unsigned instead of failing cryptically.
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+def hasKeystore = keystorePropertiesFile.exists()
+if (hasKeystore) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
-    namespace 'com.leafconnect'
-    compileSdk 35
+    namespace = 'com.leafconnect'
+    compileSdk = 35
 
     defaultConfig {
-        applicationId "com.leafconnect"
-        minSdk 26
-        targetSdk 35
-        versionCode 202429049
-        versionName "1.0.0"
+        applicationId = "com.leafconnect"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 202429049
+        versionName = "1.0.0"
     }
 
     signingConfigs {
-        leaf {
-            storeFile file('../leafconnect.keystore')
-            storePassword 'leafconnect123'
-            keyAlias 'leafconnect'
-            keyPassword 'leafconnect123'
+        if (hasKeystore) {
+            leaf {
+                storeFile = rootProject.file(keystoreProperties['storeFile'])
+                storePassword = keystoreProperties['storePassword']
+                keyAlias = keystoreProperties['keyAlias']
+                keyPassword = keystoreProperties['keyPassword']
+            }
         }
     }
 
     buildTypes {
         debug {
-            minifyEnabled false
-            signingConfig signingConfigs.leaf
+            minifyEnabled = false
+            signingConfig = signingConfigs.debug
         }
         release {
-            minifyEnabled false
-            signingConfig signingConfigs.leaf
+            minifyEnabled = true
+            shrinkResources = true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // No keystore.properties (fresh clone, CI): produce an unsigned
+            // release instead of failing with empty passwords.
+            if (hasKeystore) {
+                signingConfig = signingConfigs.leaf
+            }
         }
     }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        // Real gate: the build fails on lint errors, with the justified
+        // suppressions listed in app/lint.xml.
+        abortOnError = true
+        lintConfig = file('lint.xml')
+        checkReleaseBuilds = true
     }
 }
 
@@ -58,4 +83,16 @@ dependencies {
     implementation 'androidx.core:core-splashscreen:1.0.1'
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    // Encrypted DataStore (datastore-tink wraps DataStore files with a Tink
+    // Aead; the Android Keystore key comes from tink-android). Replaces the
+    // end-of-life androidx.security:security-crypto, whose whole API is
+    // deprecated in 1.1.0.
+    implementation 'androidx.datastore:datastore-preferences:1.3.0'
+    implementation 'androidx.datastore:datastore-tink:1.3.0'
+    implementation 'com.google.crypto.tink:tink-android:1.20.0'
+    // DataStore exposes Flow and the facade bridges it with runBlocking; the
+    // transitive coroutines deps are implementation-only, so declare it.
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0'
+    testImplementation 'junit:junit:4.13.2'
 }

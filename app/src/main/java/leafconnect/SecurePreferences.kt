@@ -1,95 +1,99 @@
 package leafconnect
 
 import android.content.Context
-import android.content.SharedPreferences
-import android.util.Base64
-import androidx.core.content.edit
-import java.security.SecureRandom
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.SecretKeySpec
+import androidx.datastore.core.DataStore
+import androidx.datastore.core.DataStoreFactory
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.PreferencesFileSerializer
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.datastore.tink.AeadSerializer
+import com.google.crypto.tink.Aead
+import com.google.crypto.tink.integration.android.AndroidKeystore
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 /**
- * AES/GCM/NoPadding 256-bit encrypted preferences store.
- * A per-install random key is provisioned on first use and stored (base64) in
- * the backing SharedPreferences file; values are stored as base64(IV || ciphertext).
+ * Keystore-backed preference store, encrypted with DataStore + Tink.
+ *
+ * The AES256-GCM key lives in the Android Keystore under a fixed alias
+ * (hardware-backed on most devices) and is NEVER written to the store file.
+ * The first implementation stored its key in the same file it encrypted, so
+ * anyone who read the file could decrypt everything. androidx.security's
+ * security-crypto reached end of life (whole API deprecated in 1.1.0); the
+ * supported successor is encrypted DataStore. The file is a protobuf blob
+ * wrapped by [androidx.datastore.tink.AeadSerializer] — encrypt on write,
+ * decrypt on read — with the store name as associated data, so ciphertext
+ * cannot be swapped between stores.
+ *
+ * Values encrypted this way — tokens, cookies, the account email and, when
+ * "Keep credentials" is on, the account password — are not readable from the
+ * on-device file, and are excluded from device-to-device transfer by the
+ * manifest (allowBackup="false").
+ *
+ * A file that cannot be decrypted (torn/foreign key after a restore or
+ * factory reset) surfaces as a CorruptionException. The corruption handler
+ * replaces it with an empty store, so the app simply starts logged-out
+ * instead of crashing — same recovery as the old implementation.
  */
-class SecurePreferences private constructor(private val prefs: SharedPreferences) {
+class SecurePreferences private constructor(private val store: DataStore<Preferences>) {
 
-    private val aesKey: SecretKeySpec
+    private fun snapshot(): Preferences = runBlocking { store.data.first() }
 
-    init {
-        val stored = prefs.getString(KEY_STORE, null)
-        val keyBytes: ByteArray = if (stored != null) {
-            Base64.decode(stored, Base64.NO_WRAP)
-        } else {
-            val generated = generateAesKey()
-            prefs.edit { putString(KEY_STORE, Base64.encodeToString(generated, Base64.NO_WRAP)) }
-            generated
-        }
-        aesKey = SecretKeySpec(keyBytes, "AES")
-    }
+    fun getString(key: String): String? = snapshot()[stringPreferencesKey(key)]
 
-    fun getString(key: String): String? {
-        val encoded = prefs.getString(key, null) ?: return null
-        return try {
-            decrypt(encoded)
-        } catch (_: Exception) {
-            null
-        }
-    }
+    fun contains(key: String): Boolean = snapshot().contains(stringPreferencesKey(key))
 
     fun put(key: String, value: String) {
-        prefs.edit { putString(key, encrypt(value)) }
+        runBlocking { store.edit { prefs -> prefs[stringPreferencesKey(key)] = value } }
     }
-
-    fun contains(key: String): Boolean = prefs.contains(key)
 
     fun remove(key: String) {
-        prefs.edit { remove(key) }
-    }
-
-    private fun encrypt(value: String): String {
-        val cipher = Cipher.getInstance(CRYPTO_ALGORITHM)
-        val iv = ByteArray(GCM_IV_LENGTH)
-        SecureRandom().nextBytes(iv)
-        cipher.init(Cipher.ENCRYPT_MODE, aesKey, GCMParameterSpec(GCM_TAG_BITS, iv))
-        val ciphertext = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
-        return Base64.encodeToString(iv + ciphertext, Base64.NO_WRAP)
-    }
-
-    private fun decrypt(encoded: String): String {
-        val data = Base64.decode(encoded, Base64.NO_WRAP)
-        val iv = data.copyOfRange(0, GCM_IV_LENGTH)
-        val ciphertext = data.copyOfRange(GCM_IV_LENGTH, data.size)
-        val cipher = Cipher.getInstance(CRYPTO_ALGORITHM)
-        cipher.init(Cipher.DECRYPT_MODE, aesKey, GCMParameterSpec(GCM_TAG_BITS, iv))
-        return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
-    }
-
-    private fun generateAesKey(): ByteArray {
-        val generator = KeyGenerator.getInstance("AES")
-        generator.init(256, SecureRandom())
-        return generator.generateKey().encoded
+        runBlocking { store.edit { prefs -> prefs -= stringPreferencesKey(key) } }
     }
 
     companion object {
-        private const val KEY_STORE = "secure_prefs_aes_key"
-        private const val GCM_IV_LENGTH = 12
-        private const val GCM_TAG_BITS = 128
-        private const val CRYPTO_ALGORITHM = "AES/GCM/NoPadding"
+        private const val NAME = "leafconnect_secure_prefs"
+        private const val KEY_ALIAS = "leafconnect_datastore_aes256_gcm"
 
         @Volatile
         private var instance: SecurePreferences? = null
 
         fun getInstance(context: Context): SecurePreferences {
             return instance ?: synchronized(this) {
-                instance ?: SecurePreferences(
-                    context.applicationContext
-                        .getSharedPreferences("leafconnect_secure_prefs", Context.MODE_PRIVATE)
-                ).also { instance = it }
+                instance ?: create(context.applicationContext).also { instance = it }
             }
+        }
+
+        private fun create(context: Context): SecurePreferences {
+            // Previous versions stored this data in an EncryptedSharedPreferences
+            // XML file, which the protobuf store cannot read: drop the dead file
+            // (its contents stay unreadable on purpose) and start fresh. The
+            // first launch after that upgrade is logged out; "Keep credentials"
+            // and "Auto-login" must be re-enabled once.
+            context.deleteSharedPreferences(NAME)
+            val aead: Aead = keystoreAead()
+            val store = DataStoreFactory.create(
+                serializer = AeadSerializer(
+                    aead = aead,
+                    wrappedSerializer = PreferencesFileSerializer,
+                    associatedData = NAME.toByteArray(),
+                ),
+                corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+            ) { context.preferencesDataStoreFile(NAME) }
+            return SecurePreferences(store)
+        }
+
+        private fun keystoreAead(): Aead {
+            // generateNewAes256GcmKey overwrites, so only generate when absent;
+            // the key itself never leaves the Keystore.
+            if (!AndroidKeystore.hasKey(KEY_ALIAS)) {
+                AndroidKeystore.generateNewAes256GcmKey(KEY_ALIAS)
+            }
+            return AndroidKeystore.getAead(KEY_ALIAS)
         }
     }
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 31+ override of Theme.LeafConnect: the framework splash-screen
+     attributes do not exist below API 31, so they may only appear here
+     (NewApi: minSdk 26 < 31). -->
+<resources>
+    <style name="Theme.LeafConnect" parent="Theme.LeafConnectBase">
+        <item name="android:windowSplashScreenBackground">@color/white</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
+    </style>
+</resources>
