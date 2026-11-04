@@ -16,15 +16,15 @@ Every request is appended to this URL. All request bodies are JSON.
 
 Sent on every request (`NissanConnectAuth.sendRequest`):
 
-| Header          | Value                                   | Notes                                        |
-| --------------- | --------------------------------------- | -------------------------------------------- |
-| `Content-Type`  | `application/json`                      |                                              |
-| `APP-Check`     | `Android CA`                             | Region marker of the official client          |
-| `API-Key`       | `RbypnRCTrt6LVkm78s/67Xl5yPVXhFnZStRjyUvT03PsKi540xhfl+Xxn/aGZsaq` | Public constant baked into the official app; cannot be hidden in any APK |
-| `User-Agent-Key`| `AIzaSyDb-KX_YXWzYFchv-IDTsVAmADIBPvA8vg` | Same as above (a Google API key of the official client) |
-| `Authorization` | `<authToken>` verbatim                   | Only when a token is stored; no `Bearer ` prefix |
-| `Cache-Control` | `no-cache, no-store, must-revalidate`    |                                              |
-| `Pragma`        | `no-cache`                               |                                              |
+| Header           | Value                                                              | Notes                                                                    |
+|------------------|--------------------------------------------------------------------|--------------------------------------------------------------------------|
+| `Content-Type`   | `application/json`                                                 |                                                                          |
+| `APP-Check`      | `Android CA`                                                       | Region marker of the official client                                     |
+| `API-Key`        | `RbypnRCTrt6LVkm78s/67Xl5yPVXhFnZStRjyUvT03PsKi540xhfl+Xxn/aGZsaq` | Public constant baked into the official app; cannot be hidden in any APK |
+| `User-Agent-Key` | `AIzaSyDb-KX_YXWzYFchv-IDTsVAmADIBPvA8vg`                          | Same as above (a Google API key of the official client)                  |
+| `Authorization`  | `<authToken>` verbatim                                             | Only when a token is stored; no `Bearer ` prefix                         |
+| `Cache-Control`  | `no-cache, no-store, must-revalidate`                              |                                                                          |
+| `Pragma`         | `no-cache`                                                         |                                                                          |
 
 The two `*-Key` values are **not user secrets**: like every constant in an
 Android app, they are readable by anyone who unpacks the APK. They identify
@@ -71,16 +71,16 @@ app logs out to the login screen.
 
 All under the base URL, `POST` with empty `{}` body unless noted:
 
-| Endpoint | Method | Purpose |
-| --- | --- | --- |
-| `/auth/vehicles/{vin}/getVehicleData` | GET | vehicle data |
-| `/battery/vehicles/{vin}/getChargingStatusRequest` | GET | battery %, cabin temp, plug state, range (HVAC on / off) |
-| `/battery/vehicles/{vin}/remoteChargingRequest` | POST | start charging |
-| `/hvac/vehicles/{vin}/activateHVAC` | POST | start cabin temp |
-| `/hvac/vehicles/{vin}/deactivateHVAC` | POST | stop cabin temp |
-| `/vehicleLocator/vehicles/{vin}/refreshVehicleLocator` | POST | last-known location (DMS coordinates) |
-| `/remote/vehicles/{vin}/accounts/{accountId}/rdl/createRDL` | POST | door lock |
-| `/remote/vehicles/{vin}/accounts/{accountId}/rdul/createRDUL` | POST | door unlock |
+| Endpoint                                                      | Method | Purpose                                                  |
+|---------------------------------------------------------------|--------|----------------------------------------------------------|
+| `/auth/vehicles/{vin}/getVehicleData`                         | GET    | vehicle data                                             |
+| `/battery/vehicles/{vin}/getChargingStatusRequest`            | GET    | battery %, cabin temp, plug state, range (HVAC on / off) |
+| `/battery/vehicles/{vin}/remoteChargingRequest`               | POST   | start charging                                           |
+| `/hvac/vehicles/{vin}/activateHVAC`                           | POST   | start cabin temp                                         |
+| `/hvac/vehicles/{vin}/deactivateHVAC`                         | POST   | stop cabin temp                                          |
+| `/vehicleLocator/vehicles/{vin}/refreshVehicleLocator`        | POST   | last-known location (DMS coordinates)                    |
+| `/remote/vehicles/{vin}/accounts/{accountId}/rdl/createRDL`   | POST   | door lock                                                |
+| `/remote/vehicles/{vin}/accounts/{accountId}/rdul/createRDUL` | POST   | door unlock                                              |
 
 Door commands carry a 5-digit authorization key as
 `{"remoteRequest": {"authorizationKey": "<pin>"}}`. The user is not asked to
@@ -89,11 +89,11 @@ app, which hardcoded it).
 
 The battery endpoint is slow on the server side (16–60+ s); the client allows
 a 90 s read timeout and a 120 s call timeout, and every request can be
-cancelled for real (`CancellationToken` → OkHttp `Call.cancel()`).
+canceled for real (`CancellationToken` → OkHttp `Call.cancel()`).
 
 ## Coordinates
 
-The location endpoint returns `latitudeDMS` / `longitudeDMS` as 4-segment DMS
-strings (e.g. `49:13:57:33`; the 4th segment is a fraction of a second).
-`GeoCoordinatesParser.toDecimal` converts them to decimal degrees for the `geo:` URI used
-to open a maps app. Plain-decimal input is passed through.
+The location endpoint returns `latitudeDMS` / `longitudeDMS` as strings holding
+decimal degrees. HomeActivity
+passes the strings to the `geo:` URI used to open a maps' app, rejecting
+non-numeric values.

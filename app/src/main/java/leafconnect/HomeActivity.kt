@@ -592,12 +592,12 @@ class HomeActivity : AppCompatActivity() {
     // sandsNotificationEvent.sandsNotificationEvent.body.location from the
     // refreshVehicleLocator response and drops a marker at (lat, lon).
     //
-    // The API reports decimals (latitude/longitude) and DMS strings
-    // (latitudeDMS = 4 segments, e.g. "49:13:57:33" — the last one is the
-    // fraction of a second). Decimals are used when present, otherwise the
-    // DMS string is converted through GeoCoordinatesParser. The old code split the DMS
-    // string on ":" and used parts[2] as minutes, so "49:13:57:33" became
-    // 49 + 57/60 ≈ 50.0 — a marker ~111 km off the real position.
+    // The API's location fields are strings holding decimal degrees:
+    // latitudeDMS/longitudeDMS carry long decimal strings like
+    // "12.3456789" (observed live on a 2024 Leaf; there are no numeric
+    // latitude/longitude fields). The strings go into the geo: URI as-is;
+    // only non-numeric values are rejected so a bad response shows
+    // "Location not available" instead of a broken map.
     private fun locateVehicle(vin: String) {
         val label = getString(R.string.locate)
         val token = newToken()
@@ -607,13 +607,13 @@ class HomeActivity : AppCompatActivity() {
                 ?.optJSONObject("sandsNotificationEvent")
                 ?.optJSONObject("body")
                 ?.optJSONObject("location")
-            val lat = pickCoordinate(location, "latitude", "latitudeDMS")
-            val lon = pickCoordinate(location, "longitude", "longitudeDMS")
+            val lat = decimalField(location, "latitudeDMS")
+            val lon = decimalField(location, "longitudeDMS")
             mainHandler.post {
                 // A canceled round must not report "Location not available"
                 // (the user just pressed CANCEL) nor open the map.
                 if (token.isCancelled) return@post
-                if (location == null || lat == null || lon == null) {
+                if (lat == null || lon == null) {
                     setCommandStatus(label, false)
                     Toast.makeText(this, R.string.location_not_available, Toast.LENGTH_LONG).show()
                 } else {
@@ -624,13 +624,9 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    /** Decimal field first, DMS field as the fallback; null when unusable. */
-    private fun pickCoordinate(location: JSONObject?, decimalKey: String, dmsKey: String): String? {
-        val decimal = location?.optDouble(decimalKey, Double.NaN)
-        if (decimal != null && decimal.isFinite()) return GeoCoordinatesParser.format(decimal)
-        val dms = location?.optString(dmsKey)?.trim() ?: return null
-        return GeoCoordinatesParser.toDecimal(dms)?.let { GeoCoordinatesParser.format(it) }
-    }
+    /** Raw coordinate string, accepted only when it is a finite decimal number. */
+    private fun decimalField(location: JSONObject?, key: String): String? =
+        location?.optString(key)?.trim()?.takeIf { it.toDoubleOrNull()?.isFinite() == true }
 
     private fun openInMaps(lat: String, lon: String) {
         val intent = Intent(Intent.ACTION_VIEW, "geo:$lat,$lon?q=$lat,$lon".toUri())

@@ -56,7 +56,7 @@ empty passwords; sign it yourself (`apksigner`) or add the file.
 ## Tests, lint, CI
 
 ```sh
-./gradlew :app:testDebugUnitTest   # unit tests (VinDecoder, GeoCoordinatesParser, CookieStore)
+./gradlew :app:testDebugUnitTest   # unit tests (VinDecoder, CookieStore)
 ./gradlew :app:lintDebug           # lint gate; suppressions and reasons in app/lint.xml
 ```
 
@@ -65,20 +65,19 @@ tests, lint) on every push and pull request.
 
 ## Architecture
 
-| File | Role |
-| --- | --- |
-| `LoginActivity.kt` | login form, credential preferences, auto-login |
-| `HomeActivity.kt` | vehicle cards, status, remote commands, logout, refresh/watchdogs |
-| `NissanConnectSession.kt` | session state, login, re-authentication, 401 routing |
-| `NissanConnectClient.kt` | one vehicle's endpoints; the single 401 self-heal path |
-| `NissanConnectAuth.kt` | HTTP transport (OkHttp), headers, constants, cookie jar |
-| `CookieStore.kt` | full session cookie set, merged per domain+path+name, encrypted persistence |
-| `SecurePreferences.kt` | Android-Keystore-backed encrypted preferences |
-| `CredentialStore.kt` | credentials in RAM; encrypted store is the fallback when Keep credentials is on |
-| `CancellationToken.kt` | real cancellation of in-flight OkHttp calls |
-| `VinDecoder.kt` | VIN → maker/model/year (offline) |
-| `GeoCoordinatesParser.kt` | Nissan DMS coordinate → decimal degrees for `geo:` URIs |
-| `NissanConnectCache.kt` | last battery payload per VIN, keyed by login generation |
+| File                      | Role                                                                            |
+|---------------------------|---------------------------------------------------------------------------------|
+| `LoginActivity.kt`        | login form, credential preferences, auto-login                                  |
+| `HomeActivity.kt`         | vehicle cards, status, remote commands, logout, refresh/watchdogs               |
+| `NissanConnectSession.kt` | session state, login, re-authentication, 401 routing                            |
+| `NissanConnectClient.kt`  | one vehicle's endpoints; the single 401 self-heal path                          |
+| `NissanConnectAuth.kt`    | HTTP transport (OkHttp), headers, constants, cookie jar                         |
+| `CookieStore.kt`          | full session cookie set, merged per domain+path+name, encrypted persistence     |
+| `SecurePreferences.kt`    | Android-Keystore-backed encrypted preferences                                   |
+| `CredentialStore.kt`      | credentials in RAM; encrypted store is the fallback when Keep credentials is on |
+| `CancellationToken.kt`    | real cancellation of in-flight OkHttp calls                                     |
+| `VinDecoder.kt`           | VIN → maker/model/year (offline)                                                |
+| `NissanConnectCache.kt`   | last battery payload per VIN, keyed by login generation                         |
 
 Design rules the code follows:
 
@@ -107,8 +106,5 @@ device.
   encrypted store (Keep credentials). Only when neither is available after a
   process restart does the app keep using the stored token, and a 401 it
   cannot heal logs out to the login screen.
-* `androidx.security:security-crypto` (EncryptedSharedPreferences) is
-  deprecated upstream; the deprecation is suppressed locally in
-  `SecurePreferences.kt`.
 * Nissan's servers rate-limit remote commands; a command may be rejected while
   a previous one is still running (the UI shows that note).

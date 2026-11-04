@@ -12,17 +12,17 @@ All persistent state lives in one file: the encrypted preferences
 (`SecurePreferences`), backed by the **Android Keystore** (the AES keys live
 in hardware-backed Keystore keys, never in the file itself). Keys stored:
 
-| Key | Contents | When present |
-| --- | --- | --- |
-| `token` | Nissan Connect auth token | after login |
-| `email` | your account email | only while "Keep credentials" is on |
-| `password` | your account password | only while "Keep credentials" is on |
-| `accountId` | account ID (needed for door commands) | after login |
-| `vehicles` | trimmed vehicle list (`uvi`, `nickname`, `modelname`, `modelyear`, `interiorTempRecords`) | after login |
-| `cookie_store` | the session cookie set | after login |
-| `nissanconnect_cache` | last battery payload per vehicle | after the first successful status fetch |
-| `keep_credentials`, `auto_login` | the two checkbox states | after you toggle them |
-| `login_gen`, `cache_gen` | generation counters (decide whether a fetch is needed) | after login / fetch |
+| Key                              | Contents                                                                                  | When present                            |
+|----------------------------------|-------------------------------------------------------------------------------------------|-----------------------------------------|
+| `token`                          | Nissan Connect auth token                                                                 | after login                             |
+| `email`                          | your account email                                                                        | only while "Keep credentials" is on     |
+| `password`                       | your account password                                                                     | only while "Keep credentials" is on     |
+| `accountId`                      | account ID (needed for door commands)                                                     | after login                             |
+| `vehicles`                       | trimmed vehicle list (`uvi`, `nickname`, `modelname`, `modelyear`, `interiorTempRecords`) | after login                             |
+| `cookie_store`                   | the session cookie set                                                                    | after login                             |
+| `nissanconnect_cache`            | last battery payload per vehicle                                                          | after the first successful status fetch |
+| `keep_credentials`, `auto_login` | the two checkbox states                                                                   | after you toggle them                   |
+| `login_gen`, `cache_gen`         | generation counters (decide whether a fetch is needed)                                    | after login / fetch                     |
 
 The **password** lives in RAM (`CredentialStore`) for the lifetime of the
 app process; while "Keep credentials" is on it is additionally written to

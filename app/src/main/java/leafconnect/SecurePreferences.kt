@@ -69,12 +69,11 @@ class SecurePreferences private constructor(private val store: DataStore<Prefere
         }
 
         private fun create(context: Context): SecurePreferences {
-            // Previous versions stored this data in an EncryptedSharedPreferences
-            // XML file, which the protobuf store cannot read: drop the dead file
-            // (its contents stay unreadable on purpose) and start fresh. The
-            // first launch after that upgrade is logged out; "Keep credentials"
-            // and "Auto-login" must be re-enabled once.
-            context.deleteSharedPreferences(NAME)
+            // The store file starts empty; previous versions wrote an encrypted
+            // XML file that is not readable here (its one-time deletion already
+            // ran on upgraded installs and fresh installs never had it). So an
+            // upgrade launches logged out; "Keep credentials" and "Auto-login"
+            // must be re-enabled once.
             val aead: Aead = keystoreAead()
             val store = DataStoreFactory.create(
                 serializer = AeadSerializer(
