@@ -5,14 +5,28 @@ on:
     branches: [ main ]
   pull_request:
 
-# One job, three gates, same as the README: assembleDebug, unit tests, lint.
-# The daemon JVM pin (gradle/gradle-daemon-jvm.properties) and the wrapper
-# pin the toolchain; Temurin 25 is installed to match the pin, so no JDK is
-# provisioned on the runner.
+# One job: the debug gates from the README (unit tests, lint) plus the release
+# package. The daemon JVM pin (gradle/gradle-daemon-jvm.properties) and the
+# wrapper pin the toolchain; Temurin 25 is installed to match the pin, so no
+# JDK is provisioned on the runner.
+#
+# keystore.properties and *.keystore are never committed, so a plain CI run
+# uploads an unsigned LeafConnect.apk. When the repository defines the secrets
+# LEAF_KEYSTORE_BASE64, LEAF_STORE_PASSWORD and LEAF_KEY_PASSWORD, the signing
+# material is restored first and every published release asset is signed.
+#
+# Publishing: every push to main/master creates a GitHub release for that
+# commit (tag release-<short sha>); every pull request gets a prerelease
+# (tag pr-<number>) that is replaced on each new push to the PR.
 jobs:
   build-test-lint:
     name: Build, test, lint
     runs-on: ubuntu-latest
+    permissions: write-all
+    env:
+      LEAF_KEYSTORE_BASE64: ${{ secrets.LEAF_KEYSTORE_BASE64 }}
+      LEAF_STORE_PASSWORD: ${{ secrets.LEAF_STORE_PASSWORD }}
+      LEAF_KEY_PASSWORD: ${{ secrets.LEAF_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,8 +38,16 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Build debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Restore signing material (skipped without secrets)
+        if: env.LEAF_KEYSTORE_BASE64 != ''
+        run: |
+          echo "$LEAF_KEYSTORE_BASE64" | base64 -d > leafconnect.keystore
+          {
+            echo "storeFile=leafconnect.keystore"
+            echo "storePassword=$LEAF_STORE_PASSWORD"
+            echo "keyAlias=leafconnect"
+            echo "keyPassword=$LEAF_KEY_PASSWORD"
+          } > keystore.properties
 
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
@@ -33,7 +55,35 @@ jobs:
       - name: Lint gate
         run: ./gradlew :app:lintDebug --stacktrace
 
+      - name: Release package
+        run: ./gradlew :app:packageLeafConnect --stacktrace
+
       - uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: LeafConnect-release
+          path: app/build/outputs/apk/release/LeafConnect.apk
+
+      - name: Publish release for this commit
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHORT="${GITHUB_SHA:0:7}"
+          gh release delete "release-$SHORT" --yes --delete-tag 2>/dev/null || true
+          gh release create "release-$SHORT" --target "$GITHUB_SHA" \
+            --title "LeafConnect $SHORT" \
+            --notes "$(git log -1 --pretty=%s)" \
+            app/build/outputs/apk/release/LeafConnect.apk
+
+      - name: Publish PR preview prerelease
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh release delete "pr-$PR_NUMBER" --yes --delete-tag 2>/dev/null || true
+          gh release create "pr-$PR_NUMBER" --target "$PR_HEAD" --prerelease \
+            --title "LeafConnect PR #$PR_NUMBER preview" \
+            --notes "Preview build for PR #$PR_NUMBER at $PR_HEAD." \
+            app/build/outputs/apk/release/LeafConnect.apk

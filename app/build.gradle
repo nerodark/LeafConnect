@@ -69,12 +69,19 @@ android {
 
 tasks.register('packageLeafConnect') {
     group = 'build'
-    description = 'Produces LeafConnect.apk from the debug build.'
-    dependsOn 'assembleDebug'
+    description = 'Produces LeafConnect.apk from the release build.'
+    dependsOn 'assembleRelease'
     doLast {
-        def src = layout.buildDirectory.file('outputs/apk/debug/app-debug.apk').get().asFile
-        def dst = layout.buildDirectory.file('outputs/apk/debug/LeafConnect.apk').get().asFile
-        dst.bytes = src.bytes
+        def dir = layout.buildDirectory.file('outputs/apk/release').get().asFile
+        // Signed builds emit app-release.apk; without keystore.properties AGP
+        // writes app-release-unsigned.apk. Take whichever the build produced.
+        def src = ['app-release.apk', 'app-release-unsigned.apk']
+                .collect { new File(dir, it) }
+                .find { it.exists() }
+        if (src == null) {
+            throw new GradleException('assembleRelease produced no release APK')
+        }
+        new File(dir, 'LeafConnect.apk').bytes = src.bytes
     }
 }
 

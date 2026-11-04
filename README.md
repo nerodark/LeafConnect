@@ -31,10 +31,11 @@ Gradle toolchain provisions what is missing).
 ./gradlew :app:assembleDebug            # debug APK, signed with the local debug key
 ./gradlew :app:assembleRelease          # release APK, minified; signed only when
                                         # keystore.properties exists
-./gradlew packageLeafConnect            # copies the debug APK to build/outputs/apk/debug/LeafConnect.apk
+./gradlew packageLeafConnect            # copies the release APK to build/outputs/apk/release/LeafConnect.apk
 ```
 
-Output: `app/build/outputs/apk/debug/app-debug.apk` (and `LeafConnect.apk`).
+Output: `app/build/outputs/apk/debug/app-debug.apk` and
+`app/build/outputs/apk/release/LeafConnect.apk`.
 
 ### Signing a release
 
@@ -60,8 +61,13 @@ empty passwords; sign it yourself (`apksigner`) or add the file.
 ./gradlew :app:lintDebug           # lint gate; suppressions and reasons in app/lint.xml
 ```
 
-`.github/workflows/ci.yml` runs the same three gates (assembleDebug, unit
-tests, lint) on every push and pull request.
+`.github/workflows/ci.yml` runs the same gates (unit tests, lint) and then
+`packageLeafConnect` on every push and pull request. Each push to `main`/
+`master` publishes a GitHub release for that commit (`release-<short sha>`),
+and each pull request gets a prerelease (`pr-<number>`) replaced on every new
+push to the PR. It signs when the repository defines the secrets
+`LEAF_KEYSTORE_BASE64`, `LEAF_STORE_PASSWORD` and `LEAF_KEY_PASSWORD`;
+without them the published APK is unsigned.
 
 ## Architecture
 
