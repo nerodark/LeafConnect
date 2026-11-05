@@ -21,7 +21,9 @@ on:
 jobs:
   build-test-lint:
     name: Build, test, lint
-    runs-on: ubuntu-latest
+    # Explicit stable image: `ubuntu-latest` emits the Ubuntu 26 migration
+    # annotation while the label moves. Ubuntu 24 already ships the Android SDK.
+    runs-on: ubuntu-24.04
     permissions: write-all
     env:
       LEAF_KEYSTORE_BASE64: ${{ secrets.LEAF_KEYSTORE_BASE64 }}
@@ -36,13 +38,10 @@ jobs:
           java-version: "25"
           cache: gradle
 
-      # setup-android@v3 defaults to installing `tools platform-tools`, but
-      # Google's SDK repository no longer offers the legacy `tools` package
-      # (the failed run died with "Failed to find package 'tools'"). Request
-      # platform-tools only; the SDK itself comes from the runner image.
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools
+      # setup-android@v3 is a Node 20 action and defaults to the removed `tools`
+      # package. v4 is Node 24 and defaults to platform-tools; the SDK itself is
+      # preinstalled on the Ubuntu runner image.
+      - uses: android-actions/setup-android@v4
 
       - name: Restore signing material (skipped without secrets)
         if: env.LEAF_KEYSTORE_BASE64 != ''
