@@ -21,9 +21,9 @@ on:
 jobs:
   build-test-lint:
     name: Build, test, lint
-    # Explicit stable image: `ubuntu-latest` emits the Ubuntu 26 migration
-    # annotation while the label moves. Ubuntu 24 already ships the Android SDK.
-    runs-on: ubuntu-24.04
+    # Ubuntu latest ships the Android SDK. GitHub may emit an informational
+    # annotation while the ubuntu-latest label migrates to Ubuntu 26.
+    runs-on: ubuntu-latest
     permissions: write-all
     env:
       LEAF_KEYSTORE_BASE64: ${{ secrets.LEAF_KEYSTORE_BASE64 }}
@@ -63,7 +63,9 @@ jobs:
       - name: Release package
         run: ./gradlew :app:packageLeafConnect --stacktrace
 
-      - uses: actions/upload-artifact@v4
+      # upload-artifact@v4/v5 are Node 20 actions. v7 is Node 24 and keeps the
+      # same name/path inputs.
+      - uses: actions/upload-artifact@v7
         with:
           name: LeafConnect-release
           path: app/build/outputs/apk/release/LeafConnect.apk
