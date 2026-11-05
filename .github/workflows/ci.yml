@@ -15,8 +15,8 @@ on:
 # LEAF_KEYSTORE_BASE64, LEAF_STORE_PASSWORD and LEAF_KEY_PASSWORD, the signing
 # material is restored first and every published release asset is signed.
 #
-# Publishing: every push to main/master creates a GitHub release for that
-# commit (tag release-<short sha>); every pull request gets a prerelease
+# Publishing: every push to main creates a GitHub release for that commit
+# (tag release-<short sha>); every pull request gets a prerelease
 # (tag pr-<number>) that is replaced on each new push to the PR.
 jobs:
   build-test-lint:
@@ -28,15 +28,21 @@ jobs:
       LEAF_STORE_PASSWORD: ${{ secrets.LEAF_STORE_PASSWORD }}
       LEAF_KEY_PASSWORD: ${{ secrets.LEAF_KEY_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
           cache: gradle
 
+      # setup-android@v3 defaults to installing `tools platform-tools`, but
+      # Google's SDK repository no longer offers the legacy `tools` package
+      # (the failed run died with "Failed to find package 'tools'"). Request
+      # platform-tools only; the SDK itself comes from the runner image.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Restore signing material (skipped without secrets)
         if: env.LEAF_KEYSTORE_BASE64 != ''

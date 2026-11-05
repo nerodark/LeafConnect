@@ -62,8 +62,8 @@ empty passwords; sign it yourself (`apksigner`) or add the file.
 ```
 
 `.github/workflows/ci.yml` runs the same gates (unit tests, lint) and then
-`packageLeafConnect` on every push and pull request. Each push to `main`/
-`master` publishes a GitHub release for that commit (`release-<short sha>`),
+`packageLeafConnect` on every push and pull request. Each push to `main`
+publishes a GitHub release for that commit (`release-<short sha>`),
 and each pull request gets a prerelease (`pr-<number>`) replaced on every new
 push to the PR. It signs when the repository defines the secrets
 `LEAF_KEYSTORE_BASE64`, `LEAF_STORE_PASSWORD` and `LEAF_KEY_PASSWORD`;
