@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  workflow_dispatch:
 
 # One job: the debug gates from the README (unit tests, lint) plus the release
 # package. The daemon JVM pin (gradle/gradle-daemon-jvm.properties) and the
