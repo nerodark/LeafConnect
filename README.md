@@ -1,4 +1,4 @@
-# LeafConnect
+test ci # LeafConnect
 
 Android client for the Nissan Connect (Janus) remote API for Nissan LEAF
 vehicles: battery/charge status, cabin temperature, remote climate start/stop,
