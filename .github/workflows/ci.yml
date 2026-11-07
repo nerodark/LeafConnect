@@ -15,11 +15,12 @@ on:
 # LEAF_KEYSTORE_BASE64, LEAF_STORE_PASSWORD and LEAF_KEY_PASSWORD, the signing
 # material is restored first and every published release asset is signed.
 #
-# Publishing: the published release uses ONE fixed tag (release-latest), which
-# is deleted and recreated on every push to main, so the repository holds
-# exactly one release at any time and never accumulates tags; the commit sha
-# stays visible in the title. Every pull request gets its own prerelease
-# (tag pr-<number>) that is replaced on each new push to that PR.
+# Publishing: the published release uses ONE fixed tag (release-latest) that is
+# UPDATED in place on every push to main, so the repository holds exactly one
+# release at any time. Deleting releases/tags is refused for the Actions token,
+# so nothing is deleted: the release is retargeted and its asset is replaced.
+# The commit sha stays visible in the title. Every pull request gets its own
+# prerelease (tag pr-<number>) updated the same way on each new push to that PR.
 jobs:
   build-test-lint:
     name: Build, test, lint
@@ -78,24 +79,42 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           SHORT="${GITHUB_SHA:0:7}"
-          # Exactly one published release. Drop the previous release and its
-          # tag first (the tag can exist without a release, so clear the ref
-          # too), then publish this commit under the SAME fixed tag. Releases
-          # published by the older release-<sha> scheme are swept away here as
-          # well; PR prereleases are never touched.
+          MESSAGE="$(git log -1 --pretty=%s)"
+          # Sweep the releases published by the older release-<sha> scheme, via
+          # the API (a release delete is allowed; deleting the tag ref it
+          # carried is best-effort because GitHub refuses ref deletions made by
+          # the Actions token). PR prereleases and release-latest are untouched.
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
-            --jq '.[] | select(.tag_name | startswith("release-")) | .tag_name' |
-            while read -r tag; do
+            --jq '.[] | select(.tag_name | startswith("release-")) | [.id, .tag_name] | @tsv' |
+            while read -r id tag; do
               if [ "$tag" != "release-latest" ]; then
-                gh release delete "$tag" --yes --delete-tag || true
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id" || true
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" || true
               fi
             done
-          gh release delete release-latest --yes --delete-tag 2>/dev/null || true
-          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/release-latest" 2>/dev/null || true
-          gh release create release-latest --target "$GITHUB_SHA" \
-            --title "LeafConnect $SHORT" \
-            --notes "$(git log -1 --pretty=%s)" \
-            app/build/outputs/apk/release/LeafConnect.apk
+          # Keep exactly ONE release by updating release-latest in place. The
+          # earlier delete-then-create sequence failed here with "a release
+          # with the same tag name already exists" (the delete was refused by
+          # the Actions token), so nothing is deleted: the release is moved to
+          # this commit and its asset is replaced.
+          ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/release-latest" --jq '.id' || true)"
+          if [ -n "$ID" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" \
+              -f target_commitish="$GITHUB_SHA" \
+              -f name="LeafConnect $SHORT" \
+              -f body="$MESSAGE" \
+              -F make_latest=true
+            # Point the tag at this commit too; a tag ref update can be
+            # refused for token-created refs, and the release target above is
+            # then what carries the new commit.
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/release-latest" -f sha="$GITHUB_SHA" || true
+            gh release upload release-latest app/build/outputs/apk/release/LeafConnect.apk --clobber
+          else
+            gh release create release-latest --target "$GITHUB_SHA" \
+              --title "LeafConnect $SHORT" \
+              --notes "$MESSAGE" \
+              app/build/outputs/apk/release/LeafConnect.apk
+          fi
 
       - name: Publish PR preview prerelease
         if: github.event_name == 'pull_request'
@@ -104,8 +123,19 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh release delete "pr-$PR_NUMBER" --yes --delete-tag 2>/dev/null || true
-          gh release create "pr-$PR_NUMBER" --target "$PR_HEAD" --prerelease \
-            --title "LeafConnect PR #$PR_NUMBER preview" \
-            --notes "Preview build for PR #$PR_NUMBER at $PR_HEAD." \
-            app/build/outputs/apk/release/LeafConnect.apk
+          # Same update-in-place rule as the main release: the Actions token
+          # cannot delete the release/tag it created, so a second push to the
+          # PR retargets the existing prerelease instead of recreating it.
+          ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/pr-$PR_NUMBER" --jq '.id' || true)"
+          if [ -n "$ID" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" \
+              -f target_commitish="$PR_HEAD" \
+              -f body="Preview build for PR #$PR_NUMBER at $PR_HEAD."
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/pr-$PR_NUMBER" -f sha="$PR_HEAD" || true
+            gh release upload "pr-$PR_NUMBER" app/build/outputs/apk/release/LeafConnect.apk --clobber
+          else
+            gh release create "pr-$PR_NUMBER" --target "$PR_HEAD" --prerelease \
+              --title "LeafConnect PR #$PR_NUMBER preview" \
+              --notes "Preview build for PR #$PR_NUMBER at $PR_HEAD." \
+              app/build/outputs/apk/release/LeafConnect.apk
+          fi
