@@ -124,7 +124,7 @@ class NissanConnectAuth private constructor(context: Context) {
             .url(url)
             .method(method, requestBody)
             .header("Content-Type", "application/json")
-            .header("APP-Check", "Android CA")
+            .header("APP-Check", "Android " + AppLocale.sessionCountry(prefs))
             .header("API-Key", API_KEY)
             .header("User-Agent-Key", USER_AGENT_KEY)
             .header("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -161,8 +161,10 @@ class NissanConnectAuth private constructor(context: Context) {
                 put("userid", email)
                 put("password", password)
                 put("brand-s", "N")
+                // The official soft-login body keeps this lowercase "en" whatever
+                // the device language is; the region is the session's own.
                 put("language-s", "en")
-                put("country", "CA")
+                put("country", AppLocale.sessionCountry(prefs))
             })
         }
         val response = doRequest(body, "POST", "/auth/softLoginforAAS", token)

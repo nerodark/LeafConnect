@@ -21,18 +21,15 @@ class NissanConnectSession(private val context: Context) {
 
     private fun prefs() = SecurePreferences.getInstance(context)
 
-    fun login(
-        email: String,
-        password: String,
-        country: String,
-        token: CancellationToken? = null,
-    ): JSONObject {
+    fun login(email: String, password: String, token: CancellationToken? = null): JSONObject {
+        val country = AppLocale.sessionCountry(prefs())
+        prefs().put(AppLocale.PREF_COUNTRY, country)
         val body = JSONObject().apply {
             put("authenticate", JSONObject().apply {
                 put("userid", email)
                 put("password", password)
                 put("brand-s", "N")
-                put("language-s", "EN")
+                put("language-s", AppLocale.languageCode())
                 put("country", country)
             })
         }
@@ -62,8 +59,8 @@ class NissanConnectSession(private val context: Context) {
                 put("userid", email)
                 put("password", password)
                 put("brand-s", "N")
-                put("language-s", "EN")
-                put("country", "CA")
+                put("language-s", AppLocale.languageCode())
+                put("country", AppLocale.sessionCountry(prefs))
             })
         }
         val response = client.makeRequestLogin(body, "POST", "/auth/authenticationForAAS", token)

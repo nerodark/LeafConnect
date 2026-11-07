@@ -16,15 +16,15 @@ Every request is appended to this URL. All request bodies are JSON.
 
 Sent on every request (`NissanConnectAuth.sendRequest`):
 
-| Header           | Value                                                              | Notes                                                                    |
-|------------------|--------------------------------------------------------------------|--------------------------------------------------------------------------|
-| `Content-Type`   | `application/json`                                                 |                                                                          |
-| `APP-Check`      | `Android CA`                                                       | Region marker of the official client                                     |
-| `API-Key`        | `RbypnRCTrt6LVkm78s/67Xl5yPVXhFnZStRjyUvT03PsKi540xhfl+Xxn/aGZsaq` | Public constant baked into the official app; cannot be hidden in any APK |
-| `User-Agent-Key` | `AIzaSyDb-KX_YXWzYFchv-IDTsVAmADIBPvA8vg`                          | Same as above (a Google API key of the official client)                  |
-| `Authorization`  | `<authToken>` verbatim                                             | Only when a token is stored; no `Bearer ` prefix                         |
-| `Cache-Control`  | `no-cache, no-store, must-revalidate`                              |                                                                          |
-| `Pragma`         | `no-cache`                                                         |                                                                          |
+| Header           | Value                                                              | Notes                                                                                                                                                       |
+|------------------|--------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Content-Type`   | `application/json`                                                 |                                                                                                                                                             |
+| `APP-Check`      | `Android CA` \| `Android US`                                       | Official client sends `Android CA` verbatim; the backend ignores it (CA, US and an absent header all authenticate), so this app follows the selected region |
+| `API-Key`        | `RbypnRCTrt6LVkm78s/67Xl5yPVXhFnZStRjyUvT03PsKi540xhfl+Xxn/aGZsaq` | Public constant baked into the official app; cannot be hidden in any APK                                                                                    |
+| `User-Agent-Key` | `AIzaSyDb-KX_YXWzYFchv-IDTsVAmADIBPvA8vg`                          | Same as above (a Google API key of the official client)                                                                                                     |
+| `Authorization`  | `<authToken>` verbatim                                             | Only when a token is stored; no `Bearer ` prefix                                                                                                            |
+| `Cache-Control`  | `no-cache, no-store, must-revalidate`                              |                                                                                                                                                             |
+| `Pragma`         | `no-cache`                                                         |                                                                                                                                                             |
 
 The two `*-Key` values are **not user secrets**: like every constant in an
 Android app, they are readable by anyone who unpacks the APK. They identify
@@ -47,8 +47,8 @@ response would drop the sticky-routing cookies and the WAF answers `401`
     "userid":   "<email>",
     "password": "<password>",
     "brand-s":  "N",
-    "language-s": "EN",
-    "country":  "CA"
+    "language-s": "EN|FR",
+    "country":  "CA|US"
 } }
 ```
 

@@ -46,6 +46,39 @@
             android:inputType="textPassword"
             android:autofillHints="password" />
 
+        <!-- Account region: the backend ties an account to Canada (CA) or the
+             United States (US) and rejects a mismatch with its generic
+             "Password or Username is incorrect" error, so the region is chosen
+             here. It starts from the device locale and is stored, so every
+             later auth call (soft login, re-authentication) uses the region the
+             session was created with. -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/region_label"
+            android:textSize="16sp" />
+
+        <RadioGroup
+            android:id="@+id/rg_region"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/rb_region_canada"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/region_canada" />
+
+            <RadioButton
+                android:id="@+id/rb_region_us"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/region_us" />
+        </RadioGroup>
+
         <Button
             android:id="@+id/btn_login"
             android:layout_width="300dp"

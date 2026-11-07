@@ -10,6 +10,8 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -98,6 +100,27 @@ class LoginActivity : AppCompatActivity() {
             prefs.put("auto_login", if (cbAuto.isChecked) "1" else "0")
         }
 
+        // Account region: the backend ties an account to Canada or the United
+        // States and answers a mismatch with its generic "wrong credentials"
+        // error. The selector starts from the stored region (or the device
+        // locale on a fresh install) and writes the choice the moment it
+        // changes. So a sign-in always sends the region
+        // shown, and soft login / re-authentication keep using it.
+        val rgRegion = findViewById<RadioGroup>(R.id.rg_region)
+        val rbRegionCanada = findViewById<RadioButton>(R.id.rb_region_canada)
+        val rbRegionUs = findViewById<RadioButton>(R.id.rb_region_us)
+        if (AppLocale.sessionCountry(prefs) == AppLocale.COUNTRY_US) {
+            rbRegionUs.isChecked = true
+        } else {
+            rbRegionCanada.isChecked = true
+        }
+        rgRegion.setOnCheckedChangeListener { _, checkedId ->
+            prefs.put(
+                AppLocale.PREF_COUNTRY,
+                if (checkedId == R.id.rb_region_us) AppLocale.COUNTRY_US else AppLocale.COUNTRY_CA,
+            )
+        }
+
         // Pre-fill the saved credentials (Keep credentials) and honor
         // auto-login. The checkbox states themselves persist across launches.
         cbKeep.isChecked = (prefs.getString("keep_credentials") ?: "0") == "1"
@@ -175,7 +198,7 @@ class LoginActivity : AppCompatActivity() {
         loginToken = token
         ioExecutor.submit {
             try {
-                val result = session.login(email, password, "CA", token)
+                val result = session.login(email, password, token)
 
                 val authToken = result.optString("authToken", "")
                 if (authToken.isEmpty()) {
