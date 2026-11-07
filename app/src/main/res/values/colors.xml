@@ -1,7 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Brand colors (identical in both modes unless noted). -->
     <color name="green">#1B5E20</color>
     <color name="green_dark">#10331A</color>
     <color name="accent">#66BB6A</color>
-    <color name="white">#FFFFFF</color>
+
+    <!-- Launcher icon plate (adaptive-icon background). Deliberately NOT
+         overridden in values-night/: the drawer icon keeps its white plate in
+         dark mode. -->
+    <color name="icon_plate">#FFFFFF</color>
+
+    <!-- Semantic surfaces. Every window/screen background goes through
+         window_bg so values-night/colors.xml can flip it; the status and
+         navigation bars, the splash and the splash overlay all use it. -->
+    <color name="window_bg">#FFFFFF</color>
+    <!-- Tint for drawn icons (ic_refresh) — needs to stay legible on the
+         surface behind them, so it follows the mode. -->
+    <color name="icon_tint">@color/green</color>
+    <color name="text_secondary">#757575</color>
+
+    <!-- Command-result banner: container + foreground, mode-aware. -->
+    <color name="banner_ok_bg">#C8E6C9</color>
+    <color name="banner_ok_fg">#1B5E20</color>
+    <color name="banner_fail_bg">#FFCDD2</color>
+    <color name="banner_fail_fg">#C62828</color>
 </resources>

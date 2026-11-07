@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.isVisible
@@ -432,7 +433,7 @@ class HomeActivity : AppCompatActivity() {
         if (vehicles.length() == 0) {
             val empty = TextView(this).apply {
                 text = getString(R.string.no_vehicles)
-                setTextColor(0xFF757575.toInt())
+                setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.text_secondary))
                 textSize = 16f
                 gravity = Gravity.CENTER
                 val d = resources.displayMetrics.density
@@ -708,8 +709,9 @@ class HomeActivity : AppCompatActivity() {
     }
 
     // Records the last requested command + outcome in the status line on top
-    // of the vehicle list — a light-green banner on success, light-red on
-    // failure.
+    // of the vehicle list — a banner in the theme's success / failure colors.
+    // The colors are resources (banner_ok_*, banner_fail_*), so dark mode gets
+    // its own container/foreground pair instead of the light-mode tints.
     private fun setCommandStatus(label: String, ok: Boolean) {
         mainHandler.post {
             cmdStatus.text = getString(R.string.cmd_status, label,
@@ -718,13 +720,15 @@ class HomeActivity : AppCompatActivity() {
             val density = resources.displayMetrics.density
             val banner = android.graphics.drawable.GradientDrawable()
             banner.cornerRadius = 8 * density
-            banner.setColor(if (ok) 0xFFC8E6C9.toInt() else 0xFFFFCDD2.toInt())
+            banner.setColor(ContextCompat.getColor(this,
+                if (ok) R.color.banner_ok_bg else R.color.banner_fail_bg))
             cmdStatus.background = banner
             cmdStatus.setPadding(
                 (12 * density).toInt(), (8 * density).toInt(),
                 (12 * density).toInt(), (8 * density).toInt()
             )
-            cmdStatus.setTextColor(if (ok) 0xFF1B5E20.toInt() else 0xFFC62828.toInt())
+            cmdStatus.setTextColor(ContextCompat.getColor(this,
+                if (ok) R.color.banner_ok_fg else R.color.banner_fail_fg))
         }
     }
 

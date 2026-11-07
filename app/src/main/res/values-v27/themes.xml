@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Day, API 27+: android:windowLightNavigationBar does not exist below API 27
+     (NewApi: minSdk 26 < 27), so the nav-bar attrs live only here. A
+     config-specific override REPLACES the style definition, so the base items
+     are re-declared. Theme.LeafConnect is intentionally NOT declared in this
+     file — it comes from values/ (and values-v31/ on API 31+), which inherits
+     this Base variant. Night devices get values-night-v27/ instead. -->
+<resources>
+    <style name="Theme.LeafConnectBase" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/green</item>
+        <item name="colorPrimaryDark">@color/green_dark</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="android:windowBackground">@color/window_bg</item>
+        <!-- Status bar: same surface as the screen, DARK icons (see
+             values/themes.xml). -->
+        <item name="android:statusBarColor">@color/window_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <!-- Navigation bar: the layouts inset content with fitsSystemWindows,
+             so the window surface shows behind the nav bar too (3-button nav
+             on tablets). Same rule as the status bar: dark icons on the light
+             surface, or the back/home/recents glyphs disappear. -->
+        <item name="android:navigationBarColor">@color/window_bg</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

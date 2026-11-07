@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher zooms the adaptive foreground to fill the masked plate, so
+     the padding has to live HERE rather than inside the bitmap: this inset
+     drawable pulls the artwork away from the squircle edge. Absolute dp insets
+     against the 432 px nodpi foreground: 8dp per side is ~7% of the icon,
+     enough clearance without shrinking the logo much. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_launcher_foreground"
+    android:insetBottom="8dp"
+    android:insetLeft="8dp"
+    android:insetRight="8dp"
+    android:insetTop="8dp" />

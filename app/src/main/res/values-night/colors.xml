@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Night palette for Theme.AppCompat.DayNight: the same color NAMES as
+     values/colors.xml, resolved when the system is in dark mode. Only the
+     surfaces and foregrounds change — the layout and theme files never
+     mention a mode. -->
+<resources>
+    <!-- Slightly brighter brand greens: #1B5E20 is too dark to read on the
+         night surface. -->
+    <color name="green">#2E7D32</color>
+    <color name="green_dark">#16301F</color>
+    <color name="accent">#81C784</color>
+
+    <!-- Near-black with a green cast, matching the brand. drawable-night/
+         ic_launcher.png mirrors this value as its background so the night
+         splash has no light plate; the LAUNCHER icon is separate
+         (mipmap-anydpi-v26 + @color/icon_plate) and stays white in dark mode. -->
+    <color name="window_bg">#0E1411</color>
+    <color name="icon_tint">#8FD08A</color>
+    <color name="text_secondary">#9EB0A6</color>
+
+    <color name="banner_ok_bg">#22452C</color>
+    <color name="banner_ok_fg">#A5D6A7</color>
+    <color name="banner_fail_bg">#4B2724</color>
+    <color name="banner_fail_fg">#F3B6AE</color>
+</resources>

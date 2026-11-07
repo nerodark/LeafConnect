@@ -4,9 +4,25 @@
          The gate (abortOnError) fails on errors; the warnings below are
          suppressed deliberately instead of fixed in code. -->
 
-    <!-- The repo ships exactly one launcher bitmap and no density variants;
-         fabricating mdpi/hdpi/xhdpi copies would only add bytes. -->
+    <!-- The repo ships an adaptive launcher icon (mipmap-anydpi) plus the UI
+         logo bitmap in drawable/; fabricating density copies would only add
+         bytes. -->
     <issue id="IconLocation" severity="ignore" />
+
+    <!-- The launcher plate must stay WHITE in dark mode (explicit product
+         decision). A <monochrome> layer exists to let the system tint the icon
+         with the wallpaper/theme color, which is exactly what we do not want,
+         so the tag is deliberately absent. -->
+    <issue id="MonochromeLauncherIcon" severity="ignore" />
+
+    <!-- AAPT2 rejects an <adaptive-icon> XML outside a -v26 folder (it fails
+         the link step with "resource mipmap/ic_launcher not found"), so the
+         folder keeps its -v26 qualifier even though minSdk 26 makes it
+         redundant. Scoped to this folder; the rest of the ObsoleteSdkInt gate
+         stays active. -->
+    <issue id="ObsoleteSdkInt" severity="ignore">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
 
     <!-- The build pins targetSdk 35, compileSdk 35 and the dependency
          versions (see README: "the build pins AGP 9.4.1, Gradle 9.6.0,

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive launcher icon. minSdk is 26, so this is the only variant the app
+     ever needs (no legacy density bitmaps). The folder keeps the -v26
+     qualifier because AAPT2 rejects an <adaptive-icon> XML without it: it
+     fails the build with "resource mipmap/ic_launcher not found", even though
+     lint calls the qualifier obsolete at minSdk 26 (suppressed in lint.xml for
+     this folder and on this element).
+     The plate is @color/icon_plate, WHITE in both modes on purpose, so the
+     drawer icon keeps its light background even when the system is dark (no
+     monochrome layer, so themed-icon tinting does not repaint it). The
+     foreground is the cropped logo artwork wrapped in an inset drawable
+     (@drawable/ic_launcher_foreground_inset): the launcher zooms the
+     foreground to fill the masked plate, so the breathing room has to live in
+     the inset. That keeps the artwork off the squircle edge while still
+     filling the plate, unlike the legacy bitmap that sat small in the middle. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="ObsoleteSdkInt">
+    <background android:drawable="@color/icon_plate" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground_inset" />
+</adaptive-icon>

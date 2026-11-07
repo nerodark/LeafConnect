@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- No root background: the theme already paints android:windowBackground
-     white, so a root background would only add overdraw. -->
+     (@color/window_bg, day or night), so a root background would only add
+     overdraw. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -107,13 +108,14 @@
     </LinearLayout>
     </ScrollView>
 
-    <!-- Splash hold: white screen with the app icon, shown for 1s on launch
-         (the system splash is dismissed at the first frame). -->
+    <!-- Splash hold: screen in the theme surface color with the app icon,
+         shown for 1s on launch (the system splash is dismissed at the first
+         frame). window_bg follows dark mode, so the hold never flashes white. -->
     <FrameLayout
         android:id="@+id/splash_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/white">
+        android:background="@color/window_bg">
 
         <ImageView
             android:layout_width="288dp"
@@ -124,6 +126,9 @@
     </FrameLayout>
 
     <!-- Full-screen loading overlay -->
+    <!-- fitsSystemWindows: the dim stops at the system bars instead of
+         darkening them, so the status bar stays white with dark icons
+         (Theme.LeafConnect sets windowLightStatusBar). -->
     <FrameLayout
         android:id="@+id/overlay_login"
         android:layout_width="match_parent"
@@ -131,6 +136,7 @@
         android:background="#80000000"
         android:clickable="true"
         android:focusable="true"
+        android:fitsSystemWindows="true"
         android:visibility="gone">
 
         <ProgressBar
