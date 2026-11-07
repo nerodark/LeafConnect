@@ -15,9 +15,11 @@ on:
 # LEAF_KEYSTORE_BASE64, LEAF_STORE_PASSWORD and LEAF_KEY_PASSWORD, the signing
 # material is restored first and every published release asset is signed.
 #
-# Publishing: every push to main creates a GitHub release for that commit
-# (tag release-<short sha>); every pull request gets a prerelease
-# (tag pr-<number>) that is replaced on each new push to the PR.
+# Publishing: the published release uses ONE fixed tag (release-latest), which
+# is deleted and recreated on every push to main, so the repository holds
+# exactly one release at any time and never accumulates tags; the commit sha
+# stays visible in the title. Every pull request gets its own prerelease
+# (tag pr-<number>) that is replaced on each new push to that PR.
 jobs:
   build-test-lint:
     name: Build, test, lint
@@ -70,14 +72,27 @@ jobs:
           name: LeafConnect-release
           path: app/build/outputs/apk/release/LeafConnect.apk
 
-      - name: Publish release for this commit
+      - name: Publish the latest release
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           SHORT="${GITHUB_SHA:0:7}"
-          gh release delete "release-$SHORT" --yes --delete-tag 2>/dev/null || true
-          gh release create "release-$SHORT" --target "$GITHUB_SHA" \
+          # Exactly one published release. Drop the previous release and its
+          # tag first (the tag can exist without a release, so clear the ref
+          # too), then publish this commit under the SAME fixed tag. Releases
+          # published by the older release-<sha> scheme are swept away here as
+          # well; PR prereleases are never touched.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
+            --jq '.[] | select(.tag_name | startswith("release-")) | .tag_name' |
+            while read -r tag; do
+              if [ "$tag" != "release-latest" ]; then
+                gh release delete "$tag" --yes --delete-tag || true
+              fi
+            done
+          gh release delete release-latest --yes --delete-tag 2>/dev/null || true
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/release-latest" 2>/dev/null || true
+          gh release create release-latest --target "$GITHUB_SHA" \
             --title "LeafConnect $SHORT" \
             --notes "$(git log -1 --pretty=%s)" \
             app/build/outputs/apk/release/LeafConnect.apk

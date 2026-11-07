@@ -63,8 +63,10 @@ empty passwords; sign it yourself (`apksigner`) or add the file.
 
 `.github/workflows/ci.yml` runs the same gates (unit tests, lint) and then
 `packageLeafConnect` on every push and pull request. Each push to `main`
-publishes a GitHub release for that commit (`release-<short sha>`),
-and each pull request gets a prerelease (`pr-<number>`) replaced on every new
+re-publishes the single GitHub release `release-latest` at that commit — the
+previous release and its tag are deleted first, so the repository keeps only
+the newest release (the sha stays in the title). Each pull request gets a
+prerelease (`pr-<number>`) replaced on every new
 push to the PR. It signs when the repository defines the secrets
 `LEAF_KEYSTORE_BASE64`, `LEAF_STORE_PASSWORD` and `LEAF_KEY_PASSWORD`;
 without them the published APK is unsigned.
