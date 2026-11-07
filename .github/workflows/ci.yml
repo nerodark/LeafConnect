@@ -88,6 +88,9 @@ jobs:
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
             --jq '.[] | select(.tag_name | startswith("release-")) | [.id, .tag_name] | @tsv' |
             while read -r id tag; do
+              case "$id" in
+                ''|*[!0-9]*) continue ;;
+              esac
               if [ "$tag" != "release-latest" ]; then
                 gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id" || true
                 gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" || true
@@ -98,7 +101,13 @@ jobs:
           # with the same tag name already exists" (the delete was refused by
           # the Actions token), so nothing is deleted: the release is moved to
           # this commit and its asset is replaced.
-          ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/release-latest" --jq '.id' || true)"
+          # gh prints the 404 body to stdout when --jq is used, so a missing
+          # release would otherwise land in ID and the PATCH would address that
+          # JSON. Anything non-numeric means "no release yet" -> create it.
+          ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/release-latest" --jq '.id' 2>/dev/null || true)"
+          case "$ID" in
+            ''|*[!0-9]*) ID="" ;;
+          esac
           if [ -n "$ID" ]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" \
               -f target_commitish="$GITHUB_SHA" \
@@ -127,7 +136,12 @@ jobs:
           # Same update-in-place rule as the main release: the Actions token
           # cannot delete the release/tag it created, so a second push to the
           # PR retargets the existing prerelease instead of recreating it.
-          ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/pr-$PR_NUMBER" --jq '.id' || true)"
+          # Same numeric guard as the main release step: a 404 body must never
+          # reach the PATCH path.
+          ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/pr-$PR_NUMBER" --jq '.id' 2>/dev/null || true)"
+          case "$ID" in
+            ''|*[!0-9]*) ID="" ;;
+          esac
           if [ -n "$ID" ]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" \
               -f target_commitish="$PR_HEAD" \
