@@ -16,15 +16,12 @@ on:
 # LEAF_KEYSTORE_BASE64, LEAF_STORE_PASSWORD and LEAF_KEY_PASSWORD, the signing
 # material is restored first and every published release asset is signed.
 #
-# Publishing: the published release uses ONE fixed tag (release-latest), so the
-# repository holds exactly one release at any time. published_at is immutable, so
-# moving the "Published" date means deleting the release and publishing a new one
-# onto the same tag — POST /releases accepts a tag_name that already exists, and a
-# release delete leaves the tag ref in place, which the Actions token cannot delete
-# anyway. If the delete is refused the release is retargeted in place (same asset,
-# original date). The title carries the commit sha and the build time and the body
-# repeats both, so a release reads as current either way. Every pull request gets
-# its own prerelease (tag pr-<number>) updated the same way on each push to that PR.
+# Publishing: every push to main creates a NEW tag (release-<UTC timestamp>) with
+# a new release, so the Published date is always now, then deletes the older
+# releases so only the latest one remains. No extra token is needed. Old tags are
+# never deleted; they accumulate in the Tags list.
+# Every pull request gets its own prerelease (tag pr-<number>) updated in place on
+# each new push to that PR.
 jobs:
   build-test-lint:
     name: Build, test, lint
@@ -84,67 +81,26 @@ jobs:
         run: |
           SHORT="${GITHUB_SHA:0:7}"
           MESSAGE="$(git log -1 --pretty=%s)"
-          # GitHub keeps the original published_at when a release is updated in
-          # place, so the page's "Published" date never moves. The build time is
-          # put in the title and body instead: the release says when it was
-          # built, which is what the stale label cannot show.
-          NOW="$(date -u +'%Y-%m-%d %H:%M UTC')"
-          TITLE="LeafConnect $SHORT ($NOW)"
-          BODY="$(printf '%s\n\nBuilt: %s\nCommit: %s' "$MESSAGE" "$NOW" "$GITHUB_SHA")"
-          # Sweep the releases published by the older release-<sha> scheme, via
-          # the API (a release delete is allowed; deleting the tag ref it
-          # carried is best-effort because GitHub refuses ref deletions made by
-          # the Actions token). PR prereleases and release-latest are untouched.
+          # A brand-new tag and release on every push, so the Published date is
+          # always now. The new release is created first; then every older
+          # release-* release is deleted so only the latest remains. Old tags
+          # are deliberately kept and simply accumulate.
+          TAG="release-$(date -u +%Y%m%d-%H%M%S)"
+          gh release create "$TAG" --target "$GITHUB_SHA" \
+            --title "LeafConnect $SHORT" \
+            --notes "$MESSAGE" \
+            --latest \
+            app/build/outputs/apk/release/LeafConnect.apk
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases" \
             --jq '.[] | select(.tag_name | startswith("release-")) | [.id, .tag_name] | @tsv' |
             while read -r id tag; do
               case "$id" in
                 ''|*[!0-9]*) continue ;;
               esac
-              if [ "$tag" != "release-latest" ]; then
+              if [ "$tag" != "$TAG" ]; then
                 gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id" || true
-                gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" || true
               fi
             done
-          # Exactly ONE release on release-latest. published_at is immutable: an
-          # in-place PATCH keeps the date of the first publish, so moving the
-          # "Published" label means deleting the release and publishing a new one
-          # on the same tag (POST accepts a tag_name that already exists; deleting
-          # a release leaves the tag in place). If the delete is refused, the
-          # release is retargeted in place instead: same asset, original date.
-          # gh prints the 404 body to stdout when --jq is used, so a missing
-          # release would otherwise land in ID and the fallback path would
-          # address that JSON. Anything non-numeric means "no release yet".
-          ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/release-latest" --jq '.id' 2>/dev/null || true)"
-          case "$ID" in
-            ''|*[!0-9]*) ID="" ;;
-          esac
-          if [ -n "$ID" ] && gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$ID" 2>/dev/null; then
-            ID=""
-          fi
-          if [ -n "$ID" ]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" \
-              -f target_commitish="$GITHUB_SHA" \
-              -f name="$TITLE" \
-              -f body="$BODY" \
-              -F make_latest=true
-          else
-            # make_latest must be a STRING here: gh's -F sends a JSON boolean and
-            # POST /releases rejects it with 422 "For 'properties/make_latest',
-            # true is not a string" (runs 17 and 18). The update endpoint below
-            # accepts the boolean, so only this call takes the string form.
-            gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
-              -f tag_name="release-latest" \
-              -f target_commitish="$GITHUB_SHA" \
-              -f name="$TITLE" \
-              -f body="$BODY" \
-              -f make_latest=true
-          fi
-          # Point the tag at this commit too; a tag ref update can be refused for
-          # token-created refs, and the release target above is then what carries
-          # the new commit.
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/release-latest" -f sha="$GITHUB_SHA" || true
-          gh release upload release-latest app/build/outputs/apk/release/LeafConnect.apk --clobber
 
       - name: Publish PR preview prerelease
         if: github.event_name == 'pull_request'
@@ -153,9 +109,9 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # Same update-in-place rule as the main release: the Actions token
-          # cannot delete the release/tag it created, so a second push to the
-          # PR retargets the existing prerelease instead of recreating it.
+          # Same update-in-place rule as before: the Actions token cannot delete
+          # the release/tag it created, so a second push to the PR retargets the
+          # existing prerelease instead of recreating it.
           # Same numeric guard as the main release step: a 404 body must never
           # reach the PATCH path.
           ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/pr-$PR_NUMBER" --jq '.id' 2>/dev/null || true)"
