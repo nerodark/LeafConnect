@@ -16,7 +16,7 @@ on:
 # LEAF_KEYSTORE_BASE64, LEAF_STORE_PASSWORD and LEAF_KEY_PASSWORD, the signing
 # material is restored first and every published release asset is signed.
 #
-# Publishing: every push to main creates a NEW tag (release-<UTC timestamp>) with
+# Publishing: every push to main creates a NEW tag (release-<short sha>) with
 # a new release, so the Published date is always now, then deletes the older
 # releases so only the latest one remains. No extra token is needed. Old tags are
 # never deleted; they accumulate in the Tags list.
@@ -85,7 +85,7 @@ jobs:
           # always now. The new release is created first; then every older
           # release-* release is deleted so only the latest remains. Old tags
           # are deliberately kept and simply accumulate.
-          TAG="release-$(date -u +%Y%m%d-%H%M%S)"
+          TAG="release-$SHORT"
           gh release create "$TAG" --target "$GITHUB_SHA" \
             --title "LeafConnect $SHORT" \
             --notes "$MESSAGE" \
