@@ -16,14 +16,17 @@ on:
 # LEAF_KEYSTORE_BASE64, LEAF_STORE_PASSWORD and LEAF_KEY_PASSWORD, the signing
 # material is restored first and every published release asset is signed.
 #
-# Publishing: the published release uses ONE fixed tag (release-latest) that is
-# UPDATED in place on every push to main, so the repository holds exactly one
-# release at any time. Deleting releases/tags is refused for the Actions token,
-# so nothing is deleted: the release is retargeted and its asset is replaced.
-# An in-place update keeps the original published_at (GitHub cannot set it), so
-# the title carries the commit sha and the build time, and the body repeats
-# both — that is what makes an updated release look current. Every pull request gets its own
-# prerelease (tag pr-<number>) updated the same way on each new push to that PR.
+# Publishing: the published release uses ONE fixed tag (release-latest), so the
+# repository holds exactly one release at any time. published_at is immutable,
+# so the release is deleted and republished on every push to main — that is what
+# moves the "Published" date. GitHub refuses ref deletions for the Actions token
+# and a release delete leaves its tag in place, so the tag is reused (POST with
+# an existing tag_name) instead of recreated. If the delete is refused, the
+# release falls back to an in-place retarget with the same asset: same content,
+# original date. The title carries the commit sha and the build time and the body
+# repeats both, so a release reads as current either way. Every pull request gets
+# its own prerelease (tag pr-<number>) updated the same way on each push to that
+# PR.
 jobs:
   build-test-lint:
     name: Build, test, lint
@@ -105,35 +108,44 @@ jobs:
                 gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" || true
               fi
             done
-          # Keep exactly ONE release by updating release-latest in place. The
-          # earlier delete-then-create sequence failed here with "a release
-          # with the same tag name already exists" (the delete was refused by
-          # the Actions token), so nothing is deleted: the release is moved to
-          # this commit and its asset is replaced.
+          # Exactly ONE release on release-latest. published_at is immutable: an
+          # in-place PATCH keeps the date of the first publish, so the release is
+          # DELETED and republished to move the "Published" label. A release
+          # delete leaves its tag in place (GitHub refuses ref deletions made by
+          # the Actions token), so the tag is reused: POST with an existing
+          # tag_name publishes a new release instead of creating a ref.
           # gh prints the 404 body to stdout when --jq is used, so a missing
-          # release would otherwise land in ID and the PATCH would address that
-          # JSON. Anything non-numeric means "no release yet" -> create it.
+          # release would otherwise land in ID and the fallback path would
+          # address that JSON. Anything non-numeric means "no release yet".
           ID="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/release-latest" --jq '.id' 2>/dev/null || true)"
           case "$ID" in
             ''|*[!0-9]*) ID="" ;;
           esac
+          # A refused delete keeps ID set and the release is retargeted in place
+          # (same asset, original date). A successful delete clears ID so the
+          # republish below runs.
+          if [ -n "$ID" ] && gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$ID" 2>/dev/null; then
+            ID=""
+          fi
           if [ -n "$ID" ]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" \
               -f target_commitish="$GITHUB_SHA" \
               -f name="$TITLE" \
               -f body="$BODY" \
               -F make_latest=true
-            # Point the tag at this commit too; a tag ref update can be
-            # refused for token-created refs, and the release target above is
-            # then what carries the new commit.
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/release-latest" -f sha="$GITHUB_SHA" || true
-            gh release upload release-latest app/build/outputs/apk/release/LeafConnect.apk --clobber
           else
-            gh release create release-latest --target "$GITHUB_SHA" \
-              --title "$TITLE" \
-              --notes "$BODY" \
-              app/build/outputs/apk/release/LeafConnect.apk
+            gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="release-latest" \
+              -f target_commitish="$GITHUB_SHA" \
+              -f name="$TITLE" \
+              -f body="$BODY" \
+              -F make_latest=true
           fi
+          # Point the tag at this commit too; a tag ref update can be refused for
+          # token-created refs, and the release target above is then what carries
+          # the new commit.
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/release-latest" -f sha="$GITHUB_SHA" || true
+          gh release upload release-latest app/build/outputs/apk/release/LeafConnect.apk --clobber
 
       - name: Publish PR preview prerelease
         if: github.event_name == 'pull_request'
