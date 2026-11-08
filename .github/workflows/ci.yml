@@ -20,7 +20,9 @@ on:
 # UPDATED in place on every push to main, so the repository holds exactly one
 # release at any time. Deleting releases/tags is refused for the Actions token,
 # so nothing is deleted: the release is retargeted and its asset is replaced.
-# The commit sha stays visible in the title. Every pull request gets its own
+# An in-place update keeps the original published_at (GitHub cannot set it), so
+# the title carries the commit sha and the build time, and the body repeats
+# both — that is what makes an updated release look current. Every pull request gets its own
 # prerelease (tag pr-<number>) updated the same way on each new push to that PR.
 jobs:
   build-test-lint:
@@ -81,6 +83,13 @@ jobs:
         run: |
           SHORT="${GITHUB_SHA:0:7}"
           MESSAGE="$(git log -1 --pretty=%s)"
+          # GitHub keeps the original published_at when a release is updated in
+          # place, so the page's "Published" date never moves. The build time is
+          # put in the title and body instead: the release says when it was
+          # built, which is what the stale label cannot show.
+          NOW="$(date -u +'%Y-%m-%d %H:%M UTC')"
+          TITLE="LeafConnect $SHORT ($NOW)"
+          BODY="$(printf '%s\n\nBuilt: %s\nCommit: %s' "$MESSAGE" "$NOW" "$GITHUB_SHA")"
           # Sweep the releases published by the older release-<sha> scheme, via
           # the API (a release delete is allowed; deleting the tag ref it
           # carried is best-effort because GitHub refuses ref deletions made by
@@ -111,8 +120,8 @@ jobs:
           if [ -n "$ID" ]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" \
               -f target_commitish="$GITHUB_SHA" \
-              -f name="LeafConnect $SHORT" \
-              -f body="$MESSAGE" \
+              -f name="$TITLE" \
+              -f body="$BODY" \
               -F make_latest=true
             # Point the tag at this commit too; a tag ref update can be
             # refused for token-created refs, and the release target above is
@@ -121,8 +130,8 @@ jobs:
             gh release upload release-latest app/build/outputs/apk/release/LeafConnect.apk --clobber
           else
             gh release create release-latest --target "$GITHUB_SHA" \
-              --title "LeafConnect $SHORT" \
-              --notes "$MESSAGE" \
+              --title "$TITLE" \
+              --notes "$BODY" \
               app/build/outputs/apk/release/LeafConnect.apk
           fi
 
