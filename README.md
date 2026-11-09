@@ -21,6 +21,11 @@ from the official client, and the backend can change at any time.
 * Session self-healing: a 401 re-authenticates once and retries; a session
   that cannot be healed ends on the login screen.
 
+## Screenshots
+
+<img src="docs/screenshots/login.png" width="280" alt="Login screen">
+<img src="docs/screenshots/home.png" width="280" alt="Home screen">
+
 ## Build
 
 Requirements: Android SDK (API 35), a JDK — `gradle-daemon-jvm.properties`

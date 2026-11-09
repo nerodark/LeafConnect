@@ -53,6 +53,18 @@ object AppLocale {
     fun sessionCountry(prefs: SecurePreferences): String =
         prefs.getString(PREF_COUNTRY)?.takeIf { it.isNotEmpty() } ?: countryCode()
 
+    /**
+     * True when the session's region shows distances in miles. The Janus payload
+     * reports range in kilometres (observed for a CA account), so a US session
+     * converts the values instead of relabeling them — the official client ships
+     * both `KILOMETRE RANGE` and `MILE RANGE` labels and switches per region.
+     */
+    fun usesMiles(prefs: SecurePreferences): Boolean = sessionCountry(prefs) == COUNTRY_US
+
+    /** Kilometres to miles; round with `roundToInt()`, the payload is a whole-number range. */
+    fun milesFromKm(km: Double): Double = km * KM_TO_MILES
+
+    const val KM_TO_MILES = 0.621371
     const val COUNTRY_CA = "CA"
     const val COUNTRY_US = "US"
     const val LANGUAGE_EN = "EN"

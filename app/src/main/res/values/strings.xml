@@ -41,7 +41,9 @@
     <string name="battery_status">Battery: %1$d%%</string>
     <string name="temp_status">Temp: %1$s°C</string>
     <string name="plugin_status">Plugin: %1$s</string>
-    <string name="range_status">Range: %1$d km (HVAC on) / %2$d km (HVAC off)</string>
+    <string name="range_status">Range: %1$d %3$s (HVAC on) / %2$d %3$s (HVAC off)</string>
+    <string name="unit_km">km</string>
+    <string name="unit_miles">mi</string>
     <string name="status_placeholder">Status: —</string>
     <string name="refreshing">Refreshing...</string>
     <string name="email_required">Email is required</string>

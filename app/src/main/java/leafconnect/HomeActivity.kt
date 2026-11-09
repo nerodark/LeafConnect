@@ -25,6 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 class HomeActivity : AppCompatActivity() {
 
@@ -543,7 +544,16 @@ class HomeActivity : AppCompatActivity() {
             if (plugin.isNotEmpty()) second.add(getString(R.string.plugin_status, plugin))
             val rangeOn = records?.optDouble("cruisingRangeAcOn", -1.0) ?: -1.0
             val rangeOff = records?.optDouble("cruisingRangeAcOff", -1.0) ?: -1.0
-            if (rangeOn >= 0) second.add(getString(R.string.range_status, rangeOn.toInt(), rangeOff.toInt()))
+            if (rangeOn >= 0) {
+                // The payload reports kilometres; a United States session shows
+                // miles (the official client switches between its KILOMETRE
+                // RANGE and MILE RANGE labels the same way).
+                val miles = AppLocale.usesMiles(SecurePreferences.getInstance(this))
+                val unit = getString(if (miles) R.string.unit_miles else R.string.unit_km)
+                val on = if (miles) AppLocale.milesFromKm(rangeOn).roundToInt() else rangeOn.toInt()
+                val off = if (miles) AppLocale.milesFromKm(rangeOff).roundToInt() else rangeOff.toInt()
+                second.add(getString(R.string.range_status, on, off, unit))
+            }
         }
         if (first.isEmpty() && fallbackTempRecords != null) {
             first.add(getString(R.string.temp_status, fallbackTempRecords.optDouble("inc_temp", 0.0).toString()))

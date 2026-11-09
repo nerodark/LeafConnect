@@ -3,6 +3,7 @@ package leafconnect
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * The region/language derivation the app now authenticates with (the official
@@ -68,5 +69,14 @@ class AppLocaleTest {
             assertEquals(AppLocale.LANGUAGE_EN, AppLocale.languageCode())
             assertEquals(AppLocale.COUNTRY_CA, AppLocale.countryCode())
         }
+    }
+
+    @Test
+    fun kilometreRangesConvertToMiles() {
+        // The payload is kilometre-based; a United States session converts it.
+        // These are the values a CA account reports at ~70% state of charge.
+        assertEquals(151, AppLocale.milesFromKm(243.0).roundToInt())
+        assertEquals(160, AppLocale.milesFromKm(257.0).roundToInt())
+        assertEquals(0, AppLocale.milesFromKm(0.0).roundToInt())
     }
 }
