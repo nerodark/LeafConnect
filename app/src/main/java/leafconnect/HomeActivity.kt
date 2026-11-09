@@ -534,21 +534,24 @@ class HomeActivity : AppCompatActivity() {
     private fun formatStatusParts(bat: JSONObject?, fallbackTempRecords: JSONObject?): Pair<String, String> {
         val first = mutableListOf<String>()
         val second = mutableListOf<String>()
+        // The payload is metric — kilometres and Celsius — so a United States
+        // session converts both. Read the region once per render.
+        val prefs = SecurePreferences.getInstance(this)
+        val miles = AppLocale.usesMiles(prefs)
+        val fahrenheit = AppLocale.usesFahrenheit(prefs)
         if (bat != null) {
             val records = bat.optJSONObject("batteryRecords")
             val soc = records?.optJSONObject("batteryStatus")?.optJSONObject("soc")?.optDouble("value", -1.0) ?: -1.0
             if (soc >= 0) first.add(getString(R.string.battery_status, soc.toInt()))
             val temp = bat.optJSONObject("temperatureRecords")?.optString("inc_temp", "") ?: ""
-            if (temp.isNotEmpty()) first.add(getString(R.string.temp_status, temp))
+            if (temp.isNotEmpty()) first.add(formatTemp(temp, fahrenheit))
             val plugin = records?.optString("pluginState", "") ?: ""
             if (plugin.isNotEmpty()) second.add(getString(R.string.plugin_status, plugin))
             val rangeOn = records?.optDouble("cruisingRangeAcOn", -1.0) ?: -1.0
             val rangeOff = records?.optDouble("cruisingRangeAcOff", -1.0) ?: -1.0
             if (rangeOn >= 0) {
-                // The payload reports kilometres; a United States session shows
-                // miles (the official client switches between its KILOMETRE
-                // RANGE and MILE RANGE labels the same way).
-                val miles = AppLocale.usesMiles(SecurePreferences.getInstance(this))
+                // The official client switches between its KILOMETRE RANGE and
+                // MILE RANGE labels the same way.
                 val unit = getString(if (miles) R.string.unit_miles else R.string.unit_km)
                 val on = if (miles) AppLocale.milesFromKm(rangeOn).roundToInt() else rangeOn.toInt()
                 val off = if (miles) AppLocale.milesFromKm(rangeOff).roundToInt() else rangeOff.toInt()
@@ -556,10 +559,26 @@ class HomeActivity : AppCompatActivity() {
             }
         }
         if (first.isEmpty() && fallbackTempRecords != null) {
-            first.add(getString(R.string.temp_status, fallbackTempRecords.optDouble("inc_temp", 0.0).toString()))
+            first.add(formatTemp(fallbackTempRecords.optDouble("inc_temp", 0.0).toString(), fahrenheit))
         }
         if (first.isEmpty()) first.add(getString(R.string.status_placeholder))
         return Pair(first.joinToString("\n"), second.joinToString("\n"))
+    }
+
+    /**
+     * `inc_temp` is Celsius; a United States session renders Fahrenheit.
+     * A payload that is not a number keeps its own text rather than
+     * rendering a converted zero.
+     */
+    private fun formatTemp(celsiusRaw: String, fahrenheit: Boolean): String {
+        val unit = getString(if (fahrenheit) R.string.unit_fahrenheit else R.string.unit_celsius)
+        val celsius = celsiusRaw.toDoubleOrNull()
+        val value = if (fahrenheit && celsius != null) {
+            AppLocale.formatOneDecimal(AppLocale.fahrenheitFromC(celsius))
+        } else {
+            celsiusRaw
+        }
+        return getString(R.string.temp_status, value, unit)
     }
 
     private fun addVehicleButton(row: LinearLayout, label: String, action: () -> Unit) {

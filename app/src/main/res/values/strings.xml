@@ -39,7 +39,9 @@
     <string name="still_loading">Still loading — status will update when ready</string>
     <string name="connection_slow">Connection is slow — status will update when ready</string>
     <string name="battery_status">Battery: %1$d%%</string>
-    <string name="temp_status">Temp: %1$s°C</string>
+    <string name="temp_status">Temp: %1$s%2$s</string>
+    <string name="unit_celsius">°C</string>
+    <string name="unit_fahrenheit">°F</string>
     <string name="plugin_status">Plugin: %1$s</string>
     <string name="range_status">Range: %1$d %3$s (HVAC on) / %2$d %3$s (HVAC off)</string>
     <string name="unit_km">km</string>

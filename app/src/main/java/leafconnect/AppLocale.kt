@@ -1,6 +1,8 @@
 package leafconnect
 
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Region and language codes for the authenticate body, derived the way the
@@ -64,7 +66,29 @@ object AppLocale {
     /** Kilometres to miles; round with `roundToInt()`, the payload is a whole-number range. */
     fun milesFromKm(km: Double): Double = km * KM_TO_MILES
 
+    /**
+     * True when the session's region shows temperatures in Fahrenheit.
+     * `temperatureRecords.inc_temp` is Celsius (observed for a CA account), so a
+     * US session converts it — same rule as the range units.
+     */
+    fun usesFahrenheit(prefs: SecurePreferences): Boolean = sessionCountry(prefs) == COUNTRY_US
+
+    /** Celsius to Fahrenheit. */
+    fun fahrenheitFromC(celsius: Double): Double = celsius * FAHRENHEIT_FACTOR + FAHRENHEIT_OFFSET
+
+    /**
+     * One decimal place, locale-independent: `48.2`, `0.5`, `-4.5`. Avoids
+     * `String.format`, whose separator follows the device locale.
+     */
+    fun formatOneDecimal(value: Double): String {
+        val tenths = (value * 10).roundToInt()
+        val whole = tenths / 10
+        return "$whole.${abs(tenths - whole * 10)}"
+    }
+
     const val KM_TO_MILES = 0.621371
+    const val FAHRENHEIT_FACTOR = 1.8
+    const val FAHRENHEIT_OFFSET = 32.0
     const val COUNTRY_CA = "CA"
     const val COUNTRY_US = "US"
     const val LANGUAGE_EN = "EN"

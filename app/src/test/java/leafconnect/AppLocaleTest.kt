@@ -79,4 +79,20 @@ class AppLocaleTest {
         assertEquals(160, AppLocale.milesFromKm(257.0).roundToInt())
         assertEquals(0, AppLocale.milesFromKm(0.0).roundToInt())
     }
+
+    @Test
+    fun celsiusTempsConvertToFahrenheit() {
+        // inc_temp is Celsius; these are readings a CA account reported.
+        assertEquals("48.2", AppLocale.formatOneDecimal(AppLocale.fahrenheitFromC(9.0)))
+        assertEquals("61.7", AppLocale.formatOneDecimal(AppLocale.fahrenheitFromC(16.5)))
+        assertEquals("32.0", AppLocale.formatOneDecimal(AppLocale.fahrenheitFromC(0.0)))
+    }
+
+    @Test
+    fun oneDecimalFormattingIsLocaleIndependent() {
+        assertEquals("0.5", AppLocale.formatOneDecimal(0.5))
+        assertEquals("-4.5", AppLocale.formatOneDecimal(-4.5))
+        assertEquals("-40.0", AppLocale.formatOneDecimal(-40.0))
+        assertEquals("212.0", AppLocale.formatOneDecimal(212.0))
+    }
 }
