@@ -23,8 +23,12 @@ from the official client, and the backend can change at any time.
 
 ## Screenshots
 
-<img src="docs/screenshots/login.png" width="280" alt="Login screen">
-<img src="docs/screenshots/home.png" width="280" alt="Home screen">
+<table>
+  <tr>
+    <td><img src="docs/screenshots/login.png" width="280" alt="Login screen"></td>
+    <td><img src="docs/screenshots/home.png" width="280" alt="Home screen"></td>
+  </tr>
+</table>
 
 ## Build
 
