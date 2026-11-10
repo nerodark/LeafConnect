@@ -132,8 +132,8 @@ Shared code (`shared/src/commonMain`):
 | `StatusFormatting.kt`     | payload numbers + region unit conversion                                        |
 
 Platform seams (`expect`/`actual`): the settings store (Android: DataStore +
-Tink AES-GCM with a Keystore key; iOS: file written with
-`FileProtectionType.complete`), the HTTP engine (OkHttp / NSURLSession), the
+Tink AES-GCM with a Keystore key; iOS: a JSON file in `Library/`, encrypted at
+rest by iOS Data Protection), the HTTP engine (OkHttp / NSURLSession), the
 device locale, and the maps opener. `shared/src/androidMain` and
 `shared/src/iosMain` contain only these seams plus the platform entry points.
 

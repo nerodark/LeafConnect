@@ -14,9 +14,10 @@ both platforms through platform-backed implementations:
 * **Android**: a DataStore file encrypted with Tink AES-GCM; the key is a
   hardware-backed Android Keystore key (`leafconnect_datastore_aes256_gcm`),
   never in the file.
-* **iOS**: one JSON file under `Library/`, written with
-  `FileProtectionType.complete` (the OS encrypts it at rest; iOS has no
-  hardware key wrapper for app files).
+* **iOS**: one JSON file under `Library/`, written by `NSFileManager`. Files an
+  app creates carry iOS Data Protection's default **complete** protection, so
+  the file is encrypted at rest and unreadable while the device is locked (iOS
+  has no hardware key wrapper for app files).
 
 Keys stored:
 
