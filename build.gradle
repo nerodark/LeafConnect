@@ -1,5 +1,21 @@
-// Root build file — clean-room Kotlin reimplementation of the Nissan LEAF Canada app.
-// AGP 9.x provides built-in Kotlin support (no separate org.jetbrains.kotlin.android plugin).
+// Root build file — Kotlin Multiplatform reimplementation of the Nissan LEAF
+// Canada app.
+//
+// Layout (the AGP 9 layout for KMP):
+//   :shared — Kotlin Multiplatform module (com.android.kotlin.multiplatform.library
+//             + iosArm64/iosSimulatorArm64/iosX64). Holds the backend client,
+//             session logic and the shared Compose UI.
+//   :app    — Android application (built-in Kotlin, AGP 9): manifest, launcher
+//             icon, MainActivity that renders the shared UI.
+//
+// iOS compilation requires a macOS host with Xcode (Kotlin/Native Apple
+// toolchain), so Android work on Windows runs the Android tasks
+// (assembleDebug, testDebugUnitTest, lintDebug) rather than the aggregate build.
 plugins {
-    id 'com.android.application' version '9.4.1' apply false
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.android.multiplatform.library) apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.compose.compiler) apply false
+    alias(libs.plugins.compose.multiplatform) apply false
 }

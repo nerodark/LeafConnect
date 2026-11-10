@@ -59,7 +59,7 @@ jobs:
           } > keystore.properties
 
       - name: Unit tests
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :shared:testAndroidHostTest --stacktrace
 
       - name: Lint gate
         run: ./gradlew :app:lintDebug --stacktrace
@@ -130,3 +130,23 @@ jobs:
               --notes "Preview build for PR #$PR_NUMBER at $PR_HEAD." \
               app/build/outputs/apk/release/LeafConnect.apk
           fi
+  # The iOS targets only compile on macOS (Kotlin/Native needs Xcode), so the
+  # shared code is compiled and linked there as a static framework. No Xcode
+  # project lives in this repository, so nothing is archived — a green compile
+  # is the gate.
+  ios-framework:
+    name: iOS framework (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - name: Compile and link the iOS frameworks
+        run: |
+          ./gradlew :shared:linkDebugFrameworkIosSimulatorArm64 \
+                    :shared:linkDebugFrameworkIosArm64 --stacktrace

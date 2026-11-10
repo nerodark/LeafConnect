@@ -1,15 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- API 31+ override of Theme.LeafConnect: the framework splash-screen
-     attributes do not exist below API 31, so they may only appear here
-     (NewApi: minSdk 26 < 31). No night variant is needed: the splash colors
-     are color resources, so @color/window_bg already resolves to the night
-     surface, and the bar flags come from the night Theme.LeafConnectBase
-     (values-night/ and values-night-v27/) via the parent. -->
+     attributes do not exist below API 31 (NewApi: minSdk 26 < 31). No night
+     variant: @color/window_bg already resolves to the night surface, and the
+     bar flags come from the night Theme.LeafConnectBase via the parent. -->
 <resources>
     <style name="Theme.LeafConnect" parent="Theme.LeafConnectBase">
         <item name="android:windowSplashScreenBackground">@color/window_bg</item>
         <!-- The UI logo: drawable/ic_launcher.png by day, its night twin in
-             drawable-night/ (same artwork on the night surface) at night. -->
+             drawable-night/ (same artwork on the night surface). -->
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher</item>
     </style>
 </resources>

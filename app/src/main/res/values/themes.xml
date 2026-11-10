@@ -1,35 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Day, API 26. The app is Compose (ComponentActivity), so the window chrome
+     uses platform Material themes rather than AppCompat. Resolution rules:
+       values/           day, API 26
+       values-v27/       day, API 27+   (nav-bar attrs; minSdk 26 < 27)
+       values-night/     night, API 26
+       values-night-v27/ night, API 27+
+     Theme.LeafConnect is declared ONLY here and in values-v31/, so a night
+     device never loses the splash attrs: it inherits the night Base variant. -->
 <resources>
-    <!-- DayNight base: the theme follows the system's dark mode. The mode is
-         expressed through color resources (values/colors.xml vs
-         values-night/colors.xml), never in the layouts.
-
-         Resolution rules, so exactly one variant is ever picked:
-           Theme.LeafConnectBase is overridden per config —
-             values/          day, API 26
-             values-v27/      day, API 27+   (nav-bar attrs, NewApi minSdk 26 < 27)
-             values-night/    night, API 26
-             values-night-v27/ night, API 27+
-           Theme.LeafConnect is declared ONLY here and in values-v31/ (the API
-           31+ splash attrs, NewApi minSdk 26 < 31), so a night device never
-           loses the splash attrs to a night-qualified file; it inherits the
-           night Theme.LeafConnectBase instead. -->
-    <style name="Theme.LeafConnectBase" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/green</item>
-        <item name="colorPrimaryDark">@color/green_dark</item>
-        <item name="colorAccent">@color/accent</item>
-        <!-- Launch screen: on API 26-30 the window background is the launch
-             screen; window_bg carries the mode (white by day, near-black by
-             night). -->
+    <style name="Theme.LeafConnectBase" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_bg</item>
-        <!-- Status bar: same surface as the screen under it. -->
+        <!-- Status bar: same surface as the screen under it. Apps targeting
+             SDK 35 are edge-to-edge, so the flag below (dark icons on the
+             light surface) is what keeps the clock/battery legible. -->
         <item name="android:statusBarColor">@color/window_bg</item>
-        <!-- DARK status-bar icons (clock, battery, wifi). This flag decides
-             the icon tint; without it the system keeps light (white) icons,
-             which vanish on the white day background. Apps targeting SDK 35
-             are edge-to-edge: android:statusBarColor is ignored there, so the
-             flag is the only thing that makes the icons legible. The night
-             variants (values-night/) set it to false — light icons on dark. -->
         <item name="android:windowLightStatusBar">true</item>
     </style>
 

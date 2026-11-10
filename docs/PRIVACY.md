@@ -8,9 +8,17 @@ third-party network traffic beyond the Nissan backend itself.
 
 ## What is stored
 
-All persistent state lives in one file: the encrypted preferences
-(`SecurePreferences`), backed by the **Android Keystore** (the AES keys live
-in hardware-backed Keystore keys, never in the file itself). Keys stored:
+All persistent state lives in one encrypted store (`SettingsStore`), shared by
+both platforms through platform-backed implementations:
+
+* **Android**: a DataStore file encrypted with Tink AES-GCM; the key is a
+  hardware-backed Android Keystore key (`leafconnect_datastore_aes256_gcm`),
+  never in the file.
+* **iOS**: one JSON file under `Library/`, written with
+  `FileProtectionType.complete` (the OS encrypts it at rest; iOS has no
+  hardware key wrapper for app files).
+
+Keys stored:
 
 | Key                              | Contents                                                                                  | When present                            |
 |----------------------------------|-------------------------------------------------------------------------------------------|-----------------------------------------|

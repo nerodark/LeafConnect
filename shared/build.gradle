@@ -1,0 +1,104 @@
+// Shared Kotlin Multiplatform module: the Nissan Connect client, session
+// logic and the Compose UI shared by Android and iOS.
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.multiplatform.library)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.compose.multiplatform)
+}
+
+kotlin {
+    // Intermediate source sets (iosMain, appleMain, nativeMain) exist only when
+    // the default hierarchy template is applied; the AGP KMP plugin does not
+    // apply it implicitly.
+    applyDefaultHierarchyTemplate()
+
+    // AGP 9's KMP library plugin provides the `android { }` target DSL instead
+    // of `androidTarget()`.
+    android {
+        namespace = 'com.leafconnect.shared'
+        compileSdk {
+            // androidx.core 1.18 and OkHttp 5 (via Ktor) compile against SDK 37.
+            version = release(37)
+        }
+        minSdk = 26
+        // JVM unit tests for the shared code (commonTest) run on the Android host.
+        withHostTest { }
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        }
+        // Lint is gated on the application module (:app:lintDebug), which also
+        // analyzes this library's manifest; a KMP library module has no
+        // standalone lint task to run.
+    }
+
+    // Apple targets: a static framework the iOS app links against. Kotlin/Native
+    // compiles Apple targets only on macOS, so these run on a macOS host or the
+    // macOS CI job — never on Windows.
+    iosArm64 {
+        binaries.framework {
+            baseName = 'LeafConnectFramework'
+            isStatic = true
+        }
+    }
+    iosSimulatorArm64 {
+        binaries.framework {
+            baseName = 'LeafConnectFramework'
+            isStatic = true
+        }
+    }
+    // No iosX64 (Intel simulator): Compose Multiplatform publishes no iosX64
+    // artifacts, so declaring that target makes every shared dependency
+    // unresolvable. Apple-silicon simulators (iosSimulatorArm64) cover dev work.
+
+    compilerOptions {
+        // The platform seams are expect/actual declarations (settings store
+        // factory, HTTP engine, device locale, maps opener).
+        freeCompilerArgs.add('-Xexpect-actual-classes')
+    }
+
+}
+
+// The generated Res class lives in the app's own package, so shared code
+// imports leafconnect.generated.resources.* instead of a generated project
+// package name.
+compose.resources {
+    packageOfResClass = 'leafconnect.generated.resources'
+    publicResClass = false
+}
+
+// Groovy KMP dependency accessors are the per-source-set configurations.
+// Compose libraries are resolved through the Compose plugin's own accessors
+// (`compose.*`), which pin the artifacts that match the plugin version — a
+// hand-written catalog version would not exist for every artifact (material3
+// and components-ui are published per androidx release, not per plugin release).
+// Compose, the JSON types and the session API are part of the shared module's
+// public API (the Android app hosts shared composables, and the session API
+// returns kotlinx-serialization JsonElement), so they are exposed as api.
+dependencies {
+    commonMainApi libs.kotlinx.serialization.json
+    commonMainApi libs.kotlinx.coroutines.core
+    commonMainApi libs.kotlinx.datetime
+
+    commonMainApi compose.runtime
+    commonMainApi compose.foundation
+    commonMainApi compose.ui
+    commonMainApi compose.material3
+    commonMainApi compose.components.resources
+
+    commonMainImplementation libs.ktor.client.core
+
+    commonTestImplementation libs.kotlin.test
+
+    androidMainImplementation libs.ktor.client.okhttp
+    // Encrypted DataStore (datastore-tink wraps DataStore files with a Tink
+    // Aead; the Android Keystore key comes from tink-android). Replaces the
+    // end-of-life androidx.security:security-crypto, whose whole API is
+    // deprecated in 1.1.0.
+    androidMainImplementation libs.androidx.datastore.preferences
+    androidMainImplementation libs.androidx.datastore.tink
+    androidMainImplementation libs.tink.android
+
+    iosMainImplementation libs.ktor.client.darwin
+}

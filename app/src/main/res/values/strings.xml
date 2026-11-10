@@ -1,56 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-side resources only: what the manifest and the window chrome need.
+     Every UI string lives in shared/composeResources/values/strings.xml. -->
+<resources>
     <string name="app_name">LeafConnect</string>
-    <string name="login">Log in</string>
-    <string name="log_out" tools:ignore="Typos">Log out</string>
-    <string name="hint_user">Email</string>
-    <string name="hint_password">Password</string>
-    <string name="keep_credentials">Keep credentials</string>
-    <string name="auto_login">Auto-login</string>
-    <string name="region_label">Account region</string>
-    <string name="region_canada">Canada</string>
-    <string name="region_us">United States</string>
-    <string name="cmd_status">Last command: %1$s — %2$s</string>
-    <string name="refresh_status">Refresh battery/temp status</string>
-    <string name="no_vehicles">No vehicles found for this account</string>
-    <string name="cmd_success">SUCCESS</string>
-    <string name="cmd_failed">FAILED</string>
-    <string name="cmd_note">Note : A command might fail if a previous command is still in progress on Nissan\'s servers.</string>
-    <string name="lock">LOCK</string>
-    <string name="unlock">UNLOCK</string>
-    <string name="start_temp">START TEMP</string>
-    <string name="stop_temp">STOP TEMP</string>
-    <string name="start_charge">START CHARGE</string>
-    <string name="locate">LOCATE</string>
-    <string name="temperature_control_started">Temperature control started</string>
-    <string name="temperature_control_start_failed">Temperature control start failed</string>
-    <string name="temperature_control_stopped">Temperature control stopped</string>
-    <string name="temperature_control_stop_failed">Temperature control stop failed</string>
-    <string name="charging_started">Charging started</string>
-    <string name="charging_start_failed">Charging start failed</string>
-    <string name="lock_command_sent">Lock command sent</string>
-    <string name="unlock_command_sent">Unlock command sent</string>
-    <string name="lock_failed">Lock failed</string>
-    <string name="unlock_failed">Unlock failed</string>
-    <string name="location_not_available">Location not available</string>
-    <string name="account_id_missing">Account ID missing — log out and back in</string>
-    <string name="no_maps_app">No maps app available</string>
-    <string name="canceled">Canceled</string>
-    <string name="still_loading">Still loading — status will update when ready</string>
-    <string name="connection_slow">Connection is slow — status will update when ready</string>
-    <string name="battery_status">Battery: %1$d%%</string>
-    <string name="temp_status">Temp: %1$s%2$s</string>
-    <string name="unit_celsius">°C</string>
-    <string name="unit_fahrenheit">°F</string>
-    <string name="plugin_status">Plugin: %1$s</string>
-    <string name="range_status">Range: %1$d %3$s (HVAC on) / %2$d %3$s (HVAC off)</string>
-    <string name="unit_km">km</string>
-    <string name="unit_miles">mi</string>
-    <string name="status_placeholder">Status: —</string>
-    <string name="refreshing">Refreshing...</string>
-    <string name="email_required">Email is required</string>
-    <string name="email_invalid">Enter a valid email address</string>
-    <string name="password_required">Password is required</string>
-    <string name="login_failed">Login failed. Check your credentials.</string>
-    <string name="connection_error">Connection error: %1$s</string>
 </resources>

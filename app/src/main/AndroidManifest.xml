@@ -5,6 +5,16 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
+    <!-- Package visibility (Android 11+): LOCATE launches Google Maps directly,
+         and the web fallback needs to resolve a browser VIEW intent. -->
+    <queries>
+        <package android:name="com.google.android.apps.maps" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -12,13 +22,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.LeafConnect">
 
+        <!-- One activity: the shared Compose UI switches between the login and
+             home screens internally, so no activity navigation exists anymore. -->
         <activity
-            android:name="leafconnect.LoginActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|navigation"
-            android:exported="false" />
-
-        <activity
-            android:name="leafconnect.HomeActivity"
+            android:name="leafconnect.MainActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|navigation"
             android:exported="true">
             <intent-filter>

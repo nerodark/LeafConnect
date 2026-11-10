@@ -1,6 +1,8 @@
-// AGP 9.x has built-in Kotlin support, so only the Android application plugin is applied.
+// Android application module. Kotlin comes from AGP 9's built-in Kotlin
+// support; everything shared with iOS lives in :shared.
 plugins {
-    id 'com.android.application'
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.compose.compiler)
 }
 
 // Signing material is NEVER in the repo: keystore.properties (gitignored)
@@ -13,9 +15,26 @@ if (hasKeystore) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+// Compose resources live in :shared (`src/commonMain/composeResources`). The
+// resources plugin copies a module's resources into that module's own assets,
+// and an Android library's assets are not merged into the application — so the
+// generated .cvr/drawable files are packaged here. The destination layout is
+// exactly what the generated accessors ask for:
+// assets/composeResources/<packageOfResClass>/...
+def sharedPreparedResources = project(':shared').layout.buildDirectory
+        .dir('generated/compose/resourceGenerator/preparedResources/commonMain/composeResources')
+def composeAssetsDir = layout.buildDirectory.dir('generated/composeAssets')
+
+def copySharedComposeResources = tasks.register('copySharedComposeResources', Copy) {
+    dependsOn ':shared:prepareComposeResourcesTaskForCommonMain'
+    from(sharedPreparedResources)
+    into(composeAssetsDir.map { it.dir('composeResources/leafconnect.generated.resources') })
+}
+
 android {
     namespace = 'com.leafconnect'
-    compileSdk = 35
+    // androidx.core 1.18 and OkHttp 5 (via Ktor) compile against SDK 37.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.leafconnect"
@@ -23,6 +42,11 @@ android {
         targetSdk = 35
         versionCode = 202429049
         versionName = "1.0.0"
+    }
+
+    buildFeatures {
+        // The Activity in this module hosts the shared Compose UI.
+        compose = true
     }
 
     signingConfigs {
@@ -67,6 +91,17 @@ android {
     }
 }
 
+// The copied resources are assets of this module. AGP rejects Provider
+// instances in the SourceSet API, so the directory resolves to a File here,
+// and every task that consumes assets (merge, lint models) must depend on the
+// copy — Gradle otherwise reports an implicit dependency on the generated dir.
+android.sourceSets['main'].assets.srcDir(composeAssetsDir.get().asFile)
+tasks.matching {
+    (it.name.startsWith('merge') && it.name.endsWith('Assets')) || it.name.toLowerCase().contains('lint')
+}.configureEach {
+    dependsOn copySharedComposeResources
+}
+
 tasks.register('packageLeafConnect') {
     group = 'build'
     description = 'Produces LeafConnect.apk from the release build.'
@@ -86,20 +121,8 @@ tasks.register('packageLeafConnect') {
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.16.0'
-    implementation 'androidx.core:core-splashscreen:1.0.1'
-    implementation 'androidx.appcompat:appcompat:1.7.0'
-    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
-    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-    // Encrypted DataStore (datastore-tink wraps DataStore files with a Tink
-    // Aead; the Android Keystore key comes from tink-android). Replaces the
-    // end-of-life androidx.security:security-crypto, whose whole API is
-    // deprecated in 1.1.0.
-    implementation 'androidx.datastore:datastore-preferences:1.3.0'
-    implementation 'androidx.datastore:datastore-tink:1.3.0'
-    implementation 'com.google.crypto.tink:tink-android:1.20.0'
-    // DataStore exposes Flow and the facade bridges it with runBlocking; the
-    // transitive coroutines deps are implementation-only, so declare it.
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0'
-    testImplementation 'junit:junit:4.13.2'
+    implementation project(':shared')
+    implementation libs.androidx.activity.compose
+    implementation libs.androidx.core.ktx
+    implementation libs.androidx.core.splashscreen
 }
