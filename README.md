@@ -25,8 +25,12 @@ from the official client, and the backend can change at any time.
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/login.png" width="280" alt="Login screen"></td>
-    <td><img src="docs/screenshots/home.png" width="280" alt="Home screen"></td>
+    <td><img src="docs/screenshots/login_light.png" width="280" alt="Login screen"></td>
+    <td><img src="docs/screenshots/home_light.png" width="280" alt="Home screen"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/login_dark.png" width="280" alt="Login screen"></td>
+    <td><img src="docs/screenshots/home_dark.png" width="280" alt="Home screen"></td>
   </tr>
 </table>
 

@@ -1,25 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Night palette for Theme.AppCompat.DayNight: the same color NAMES as
-     values/colors.xml, resolved when the system is in dark mode. Only the
-     surfaces and foregrounds change — the layout and theme files never
-     mention a mode. -->
+<!-- Night Material 3 scheme: the same color NAMES as values/colors.xml,
+     resolved when the system is in dark mode. Only the roles and surfaces
+     change — layout and theme files never mention a mode. Roles that reference
+     other roles (banner_*, icon_tint) live in values/ only: the references
+     resolve against this file at runtime. -->
 <resources>
-    <!-- Slightly brighter brand greens: #1B5E20 is too dark to read on the
-         night surface. -->
-    <color name="green">#2E7D32</color>
-    <color name="green_dark">#16301F</color>
-    <color name="accent">#81C784</color>
+    <!-- Primary flips to the light green tint: #1B5E20 is too dark to read as
+         a foreground on the night surface. -->
+    <color name="primary">#8FD08A</color>
+    <color name="on_primary">#0B2312</color>
+    <color name="primary_container">#295231</color>
+    <color name="on_primary_container">#D6EFD2</color>
+
+    <color name="secondary">#A8C9AF</color>
+    <color name="on_secondary">#15321F</color>
+    <color name="secondary_container">#3A5345</color>
+    <color name="on_secondary_container">#D8EADD</color>
+
+    <color name="tertiary">#96C4C9</color>
+    <color name="on_tertiary">#04323A</color>
+    <color name="tertiary_container">#3A6166</color>
+    <color name="on_tertiary_container">#D2EFF3</color>
+
+    <color name="error">#F2B8B5</color>
+    <color name="on_error">#601E18</color>
+    <color name="error_container">#8E2E25</color>
+    <color name="on_error_container">#F9DEDC</color>
 
     <!-- Near-black with a green cast, matching the brand. drawable-night/
          ic_launcher.png mirrors this value as its background so the night
          splash has no light plate; the LAUNCHER icon is separate
          (mipmap-anydpi-v26 + @color/icon_plate) and stays white in dark mode. -->
     <color name="window_bg">#0E1411</color>
-    <color name="icon_tint">#8FD08A</color>
-    <color name="text_secondary">#9EB0A6</color>
+    <color name="on_surface">#E3ECE5</color>
+    <color name="surface_variant">#27352B</color>
+    <color name="on_surface_variant">#9EB0A6</color>
+    <color name="surface_container">#1A231E</color>
+    <color name="surface_container_low">#141C17</color>
+    <color name="surface_container_high">#232E27</color>
+    <color name="surface_container_lowest">#0A100D</color>
+    <color name="surface_container_highest">#27352B</color>
+    <color name="surface_bright">#2B3831</color>
+    <color name="surface_dim">#0E1411</color>
+    <!-- Inverse pair: the snackbar is a light chip on the dark screen. -->
+    <color name="inverse_surface">#DDE7DE</color>
+    <color name="on_inverse_surface">#27352B</color>
+    <color name="inverse_primary">#10331A</color>
 
-    <color name="banner_ok_bg">#22452C</color>
-    <color name="banner_ok_fg">#A5D6A7</color>
-    <color name="banner_fail_bg">#4B2724</color>
-    <color name="banner_fail_fg">#F3B6AE</color>
+    <color name="outline">#6E8175</color>
+    <color name="outline_variant">#3B4B41</color>
 </resources>

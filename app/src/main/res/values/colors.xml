@@ -1,27 +1,81 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Material 3 color scheme (day). The night twin in values-night/colors.xml
+     declares the SAME names, so themes and layouts never mention a mode — the
+     mode is expressed only through these color resources.
+
+     The scheme is built around the brand green (#1B5E20). Every foreground is
+     checked against its own container/background for WCAG AA contrast. -->
 <resources>
-    <!-- Brand colors (identical in both modes unless noted). -->
-    <color name="green">#1B5E20</color>
-    <color name="green_dark">#10331A</color>
-    <color name="accent">#66BB6A</color>
+    <!-- Primary: the brand green; containers are the light green tone pair
+         used by filled/outlined status banners and headline accents. -->
+    <color name="primary">#1B5E20</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="primary_container">#C8E6C9</color>
+    <color name="on_primary_container">#10331A</color>
+
+    <!-- Secondary: muted green. Still part of the M3 scheme and used by
+         SwipeRefreshLayout's color scheme; no widgets use it for fills. -->
+    <color name="secondary">#4F6B57</color>
+    <color name="on_secondary">#FFFFFF</color>
+    <color name="secondary_container">#D8E8D2</color>
+    <color name="on_secondary_container">#17322A</color>
+
+    <!-- Tertiary: teal-green accent, used for the refresh spinner stops. -->
+    <color name="tertiary">#3F6B70</color>
+    <color name="on_tertiary">#FFFFFF</color>
+    <color name="tertiary_container">#C9E8EE</color>
+    <color name="on_tertiary_container">#0A3238</color>
+
+    <!-- M3 error roles: the FAILED banner and inline field errors. -->
+    <color name="error">#B3261E</color>
+    <color name="on_error">#FFFFFF</color>
+    <color name="error_container">#F9DEDC</color>
+    <color name="on_error_container">#411110</color>
+
+    <!-- Semantic surfaces. Every window/screen background goes through
+         window_bg so values-night/colors.xml can flip it; the status and
+         navigation bars, the splash and the splash overlay all use it.
+         colorSurface is the same value, so outlined vehicle cards read as
+         the screen with a hairline outline instead of a second gray plate. -->
+    <color name="window_bg">#FFFFFF</color>
+    <color name="on_surface">#131C16</color>
+    <color name="surface_variant">#DCE7DD</color>
+    <color name="on_surface_variant">#46584D</color>
+    <!-- Elevated/tonal surface tiers (cards, snackbars, hover states). -->
+    <color name="surface_container">#EEF4EE</color>
+    <color name="surface_container_low">#F5F9F3</color>
+    <color name="surface_container_high">#E4EDE5</color>
+    <color name="surface_container_lowest">#FFFFFF</color>
+    <color name="surface_container_highest">#DCE7DD</color>
+    <color name="surface_bright">#FFFFFF</color>
+    <color name="surface_dim">#E0EAE0</color>
+    <!-- Inverse pair: the snackbar container (dark chip on a light screen). -->
+    <color name="inverse_surface">#2E4238</color>
+    <color name="on_inverse_surface">#DCE7DE</color>
+    <color name="inverse_primary">#C8E6C9</color>
+
+    <color name="outline">#78897E</color>
+    <color name="outline_variant">#C2D2C6</color>
+
+    <!-- Tint for drawn icons (ic_refresh) — follows the mode through the
+          primary token, so it stays legible on the surface behind it. -->
+    <color name="icon_tint">@color/primary</color>
+
+    <!-- Command-result banner: M3 success / error containers. Defined ONCE by
+         referencing the role tokens, so values-night/ needs no copy — the
+         references resolve against the night scheme at runtime. -->
+    <color name="banner_ok_bg">@color/primary_container</color>
+    <color name="banner_ok_fg">@color/on_primary_container</color>
+    <color name="banner_fail_bg">@color/error_container</color>
+    <color name="banner_fail_fg">@color/on_error_container</color>
+
+    <!-- Modal dim for the loading overlay + the spinner drawn on it (white in
+          both modes: the scrim is dark either way). -->
+    <color name="scrim">#80000000</color>
+    <color name="scrim_indicator">#FFFFFF</color>
 
     <!-- Launcher icon plate (adaptive-icon background). Deliberately NOT
          overridden in values-night/: the drawer icon keeps its white plate in
          dark mode. -->
     <color name="icon_plate">#FFFFFF</color>
-
-    <!-- Semantic surfaces. Every window/screen background goes through
-         window_bg so values-night/colors.xml can flip it; the status and
-         navigation bars, the splash and the splash overlay all use it. -->
-    <color name="window_bg">#FFFFFF</color>
-    <!-- Tint for drawn icons (ic_refresh) — needs to stay legible on the
-         surface behind them, so it follows the mode. -->
-    <color name="icon_tint">@color/green</color>
-    <color name="text_secondary">#757575</color>
-
-    <!-- Command-result banner: container + foreground, mode-aware. -->
-    <color name="banner_ok_bg">#C8E6C9</color>
-    <color name="banner_ok_fg">#1B5E20</color>
-    <color name="banner_fail_bg">#FFCDD2</color>
-    <color name="banner_fail_fg">#C62828</color>
 </resources>

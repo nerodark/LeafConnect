@@ -2,7 +2,11 @@
 <!-- No root background: the theme already paints android:windowBackground
      (@color/window_bg, day or night), so a root background would only add
      overdraw. -->
+<!-- The root FrameLayout is the Snackbar anchor for command results, watchdog
+     notices and the cancel confirmation. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_home"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -38,14 +42,14 @@
                 android:padding="24dp">
 
                 <!-- Last requested command + its outcome (success / failed).
-                     On top of the vehicle list, bold and prominent. -->
+                     On top of the vehicle list, prominent; its container +
+                     foreground colors are set in code (M3 success/error). -->
                 <TextView
                     android:id="@+id/cmd_status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="8dp"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
+                    android:textAppearance="@style/TextAppearance.LeafConnect.CommandStatus"
                     android:visibility="gone" />
 
                 <!-- 0dp + weight 1: the high-performance form for a weighted
@@ -59,9 +63,10 @@
 
                 <!-- Inside the scrollview with the vehicles, pinned to the
                      bottom of the screen when the content is short. Same
-                     fixed width as the LOGIN button. -->
-                <Button
+                     fixed width as the LOGIN button, same filled style. -->
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_log_out"
+                    style="@style/Widget.LeafConnect.Button"
                     android:layout_width="300dp"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center_horizontal"
@@ -75,8 +80,7 @@
                     android:layout_marginTop="12dp"
                     android:gravity="center_horizontal"
                     android:text="@string/cmd_note"
-                    android:textColor="#757575"
-                    android:textSize="12sp" />
+                    android:textAppearance="@style/TextAppearance.LeafConnect.Footnote" />
             </LinearLayout>
         </ScrollView>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
@@ -84,7 +88,10 @@
     <!-- Full-screen loading overlay — CANCEL (not the overlay itself)
          cancels the in-progress fetch -->
     <!-- The overlay is a single LinearLayout (the FrameLayout wrapper with a
-         single child was unnecessary); the dark background lives here. -->
+         single child was unnecessary); the scrim color lives here. -->
+    <!-- The loading spinner is the CANCEL button's icon: while a fetch runs,
+         HomeActivity swaps the button icon for an indeterminate ring, so the
+         "in progress" state lives inside the only control on the overlay. -->
     <!-- fitsSystemWindows: the dim stops at the system bars instead of
          darkening them, so the status bar stays white with dark icons
          (Theme.LeafConnect sets windowLightStatusBar). -->
@@ -92,7 +99,7 @@
         android:id="@+id/overlay_home"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#80000000"
+        android:background="@color/scrim"
         android:clickable="true"
         android:focusable="true"
         android:fitsSystemWindows="true"
@@ -100,17 +107,11 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <ProgressBar
-            android:id="@+id/pb_home"
-            style="?android:attr/progressBarStyle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_cancel"
+            style="@style/Widget.LeafConnect.Button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
             android:text="@android:string/cancel" />
     </LinearLayout>
 

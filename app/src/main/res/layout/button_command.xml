@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A command button inside a vehicle card. Built in code, but a code-created
+  MaterialButton (1.13) has no defStyleRes constructor, so the Material style
+  can only come from XML: inflate this instead of calling the constructor.
+  Equal weight keeps the two buttons of a row aligned with the rows above.
+-->
+<com.google.android.material.button.MaterialButton xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.LeafConnect.Button"
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:layout_marginEnd="8dp" />

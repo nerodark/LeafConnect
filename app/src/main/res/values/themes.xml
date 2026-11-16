@@ -1,29 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- DayNight base: the theme follows the system's dark mode. The mode is
-         expressed through color resources (values/colors.xml vs
-         values-night/colors.xml), never in the layouts.
+    <!-- Material Design 3 theme.
 
-         Resolution rules, so exactly one variant is ever picked:
-           Theme.LeafConnectBase is overridden per config —
-             values/          day, API 26
-             values-v27/      day, API 27+   (nav-bar attrs, NewApi minSdk 26 < 27)
-             values-night/    night, API 26
-             values-night-v27/ night, API 27+
-           Theme.LeafConnect is declared ONLY here and in values-v31/ (the API
-           31+ splash attrs, NewApi minSdk 26 < 31), so a night device never
-           loses the splash attrs to a night-qualified file; it inherits the
-           night Theme.LeafConnectBase instead. -->
-    <style name="Theme.LeafConnectBase" parent="Theme.AppCompat.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/green</item>
-        <item name="colorPrimaryDark">@color/green_dark</item>
-        <item name="colorAccent">@color/accent</item>
+       DayNight base: the theme follows the system's dark mode. The mode is
+       expressed through color resources (values/colors.xml vs
+       values-night/colors.xml), never in the layouts.
+
+       Resolution rules, so exactly one variant is ever picked:
+         Theme.LeafConnect.Colors is declared ONCE, here. It carries every M3
+         color role; the roles point at color NAMES, so a night device gets the
+         night scheme without a night copy of this style.
+         Theme.LeafConnectBase is overridden per config — it inherits Colors and
+         adds only the system-bar flags:
+           values/          day, API 26
+           values-v27/      day, API 27+   (nav-bar attrs, NewApi minSdk 26 < 27)
+           values-night/    night, API 26
+           values-night-v27/ night, API 27+
+         Theme.LeafConnect is declared ONLY here and in values-v31/ (the API
+         31+ splash attrs, NewApi minSdk 26 < 31), so a night device never
+         loses the splash attrs to a night-qualified file; it inherits the night
+         Theme.LeafConnectBase instead. -->
+    <style name="Theme.LeafConnect.Colors" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Color roles. -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorPrimaryContainer">@color/primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/on_primary_container</item>
+        <item name="colorPrimaryInverse">@color/inverse_primary</item>
+        <item name="colorSecondary">@color/secondary</item>
+        <item name="colorOnSecondary">@color/on_secondary</item>
+        <item name="colorSecondaryContainer">@color/secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/on_secondary_container</item>
+        <item name="colorTertiary">@color/tertiary</item>
+        <item name="colorOnTertiary">@color/on_tertiary</item>
+        <item name="colorTertiaryContainer">@color/tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/on_tertiary_container</item>
+        <item name="colorError">@color/error</item>
+        <item name="colorOnError">@color/on_error</item>
+        <item name="colorErrorContainer">@color/error_container</item>
+        <item name="colorOnErrorContainer">@color/on_error_container</item>
+
+        <!-- Surfaces: window_bg IS the M3 surface/background, so the screen,
+             the outlined vehicle cards and the launch screen share one tone.
+             The container tiers keep the green cast at every elevation. -->
+        <item name="android:colorBackground">@color/window_bg</item>
+        <item name="colorSurface">@color/window_bg</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorSurfaceVariant">@color/surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/surface_container</item>
+        <item name="colorSurfaceContainerLow">@color/surface_container_low</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_container_high</item>
+        <item name="colorSurfaceContainerLowest">@color/surface_container_lowest</item>
+        <item name="colorSurfaceContainerHighest">@color/surface_container_highest</item>
+        <item name="colorSurfaceBright">@color/surface_bright</item>
+        <item name="colorSurfaceDim">@color/surface_dim</item>
+        <item name="colorSurfaceInverse">@color/inverse_surface</item>
+        <item name="colorOnSurfaceInverse">@color/on_inverse_surface</item>
+        <item name="colorOutline">@color/outline</item>
+        <item name="colorOutlineVariant">@color/outline_variant</item>
+
+        <!-- Plain TextViews (status lines, footnotes) follow the surface roles;
+             the M3 baseline hardcodes its own text colors, so override here. -->
+        <item name="android:textColorPrimary">@color/on_surface</item>
+        <item name="android:textColorSecondary">@color/on_surface_variant</item>
+
         <!-- Launch screen: on API 26-30 the window background is the launch
              screen; window_bg carries the mode (white by day, near-black by
              night). -->
         <item name="android:windowBackground">@color/window_bg</item>
         <!-- Status bar: same surface as the screen under it. -->
         <item name="android:statusBarColor">@color/window_bg</item>
+    </style>
+
+    <style name="Theme.LeafConnectBase" parent="Theme.LeafConnect.Colors">
         <!-- DARK status-bar icons (clock, battery, wifi). This flag decides
              the icon tint; without it the system keeps light (white) icons,
              which vanish on the white day background. Apps targeting SDK 35
@@ -34,4 +84,42 @@
     </style>
 
     <style name="Theme.LeafConnect" parent="Theme.LeafConnectBase" />
+
+    <!-- Text buttons: every text button is the same filled style, so the
+         layouts and the views HomeActivity inflates all share one look. -->
+    <style name="Widget.LeafConnect.Button" parent="Widget.Material3.Button" />
+    <!-- Tonal variant for the account region toggle: a mutually exclusive
+         choice gets secondary emphasis, one level down from the filled
+         primary actions. -->
+    <style name="Widget.LeafConnect.Button.Tonal" parent="Widget.Material3.Button.TonalButton" />
+    <!-- Tonal icon button (the per-card refresh arrow): tonal container with
+         the icon centered in it. The icon keeps the brand tint (dark green by
+         day, light green by night) instead of the container's own foreground,
+         so the arrow matches the drawn ic_refresh. -->
+    <style name="Widget.LeafConnect.Button.Refresh" parent="Widget.Material3.Button.IconButton.Filled.Tonal">
+        <item name="iconTint">@color/icon_tint</item>
+    </style>
+
+    <!-- M3 type scale, exposed as app styles so Kotlin code (non-transitive R
+         classes) can reference them by name. -->
+    <style name="TextAppearance.LeafConnect.VehicleName" parent="TextAppearance.Material3.TitleLarge" />
+    <style name="TextAppearance.LeafConnect.Vin" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+    <style name="TextAppearance.LeafConnect.StatusPrimary" parent="TextAppearance.Material3.BodyLarge" />
+    <style name="TextAppearance.LeafConnect.StatusSecondary" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+    <!-- The command banner colors are set in code (success / error container),
+         so the style carries only the type. -->
+    <style name="TextAppearance.LeafConnect.CommandStatus" parent="TextAppearance.Material3.BodyMedium" />
+    <style name="TextAppearance.LeafConnect.Footnote" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+    <style name="TextAppearance.LeafConnect.FieldLabel" parent="TextAppearance.Material3.TitleSmall" />
+    <style name="TextAppearance.LeafConnect.CheckRow" parent="TextAppearance.Material3.BodyLarge" />
+    <!-- Placeholder shown when the account has no vehicles. -->
+    <style name="TextAppearance.LeafConnect.Placeholder" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
 </resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Tonal icon refresh button next to the battery/temperature line. Same reason
+  as button_command.xml: the Material button style must come from XML, so this
+  is inflated instead of constructed. The icon is tinted by the style
+  (iconTint), the content description is set in code because it depends on
+  the vehicle.
+-->
+<com.google.android.material.button.MaterialButton xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.LeafConnect.Button.Refresh"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    app:icon="@drawable/ic_refresh" />

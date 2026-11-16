@@ -13,15 +13,16 @@
     <string name="cmd_status">Last command: %1$s — %2$s</string>
     <string name="refresh_status">Refresh battery/temp status</string>
     <string name="no_vehicles">No vehicles found for this account</string>
-    <string name="cmd_success">SUCCESS</string>
-    <string name="cmd_failed">FAILED</string>
+    <!-- Sentence case: M3 buttons and banners are not all-caps labels. -->
+    <string name="cmd_success">succeeded</string>
+    <string name="cmd_failed">failed</string>
     <string name="cmd_note">Note : A command might fail if a previous command is still in progress on Nissan\'s servers.</string>
-    <string name="lock">LOCK</string>
-    <string name="unlock">UNLOCK</string>
-    <string name="start_temp">START TEMP</string>
-    <string name="stop_temp">STOP TEMP</string>
-    <string name="start_charge">START CHARGE</string>
-    <string name="locate">LOCATE</string>
+    <string name="lock">Lock</string>
+    <string name="unlock">Unlock</string>
+    <string name="start_temp">Start temp</string>
+    <string name="stop_temp">Stop temp</string>
+    <string name="start_charge">Start charge</string>
+    <string name="locate">Locate</string>
     <string name="temperature_control_started">Temperature control started</string>
     <string name="temperature_control_start_failed">Temperature control start failed</string>
     <string name="temperature_control_stopped">Temperature control stopped</string>

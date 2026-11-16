@@ -1,23 +1,34 @@
 package leafconnect
 
+import android.animation.ValueAnimator
+import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.PixelFormat
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
+import android.view.animation.LinearInterpolator
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.isVisible
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
+import com.google.android.material.snackbar.Snackbar
 import com.leafconnect.R
 import org.json.JSONArray
 import org.json.JSONObject
@@ -31,6 +42,9 @@ class HomeActivity : AppCompatActivity() {
 
     private lateinit var session: NissanConnectSession
     private lateinit var overlay: View
+    private lateinit var btnCancel: MaterialButton
+    /** Root view the Snackbars (command results, cancel, watchdog notices) anchor to. */
+    private lateinit var root: View
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var container: LinearLayout
     private lateinit var cmdStatus: TextView
@@ -102,15 +116,26 @@ class HomeActivity : AppCompatActivity() {
     @Volatile
     private var logoutStarted = false
 
-    // Per-vehicle status views: first = Battery/Temp row (with refresh
-    // arrow), second = Plugin/Range rows (full width).
-    private data class StatusViews(val first: TextView, val second: TextView, val refresh: ImageView)
+    // Per-vehicle status views: first = Battery/Temp row (with the M3 icon
+    // button refresh), second = Plugin/Range rows (full width).
+    private data class StatusViews(val first: TextView, val second: TextView, val refresh: MaterialButton)
+
+    /** Density-scaled pixels for the views built in code (layouts use dp). */
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         installSplashScreen()
         createContent()
     }
+
+    // The CANCEL button's loading icon: an indeterminate ring drawn as the
+    // button icon while a fetch runs. It drives its own rotation with a
+    // [ValueAnimator] (start/stop below), so it spins on demand without
+    // depending on the view it is attached to. Drawn in white; MaterialButton
+    // tints it with the button's own icon tint (colorOnPrimary), so the ring
+    // matches the button text in both day and night themes.
+    private val spinnerIcon: SpinnerRing by lazy { SpinnerRing(this) }
 
     private fun createContent() {
         setContentView(R.layout.activity_home)
@@ -133,9 +158,13 @@ class HomeActivity : AppCompatActivity() {
         }
 
         overlay = findViewById(R.id.overlay_home)
+        root = findViewById(R.id.root_home)
         swipeRefresh = findViewById(R.id.swipe_refresh)
         container = findViewById(R.id.container_home)
         cmdStatus = findViewById(R.id.cmd_status)
+
+        // Swipe spinner in the scheme's hues instead of the AppCompat defaults.
+        swipeRefresh.setColorSchemeResources(R.color.primary, R.color.secondary, R.color.tertiary)
 
         session = NissanConnectSession(this)
         session.onUnauthorized = {
@@ -143,12 +172,15 @@ class HomeActivity : AppCompatActivity() {
             mainHandler.post { logOut(manual = false) }
         }
 
-        findViewById<Button>(R.id.btn_log_out).setOnClickListener { logOut() }
+        findViewById<MaterialButton>(R.id.btn_log_out).setOnClickListener { logOut() }
 
         // Only the CANCEL button cancels the in-progress fetch (tapping the
         // overlay just absorbs the touch so nothing behind it is tappable).
         overlay.setOnClickListener {}
-        findViewById<Button>(R.id.btn_cancel).setOnClickListener { cancelRefresh() }
+        btnCancel = findViewById(R.id.btn_cancel)
+        // The ring drawn as the button icon while the overlay is up.
+        btnCancel.iconSize = dp(20)
+        btnCancel.setOnClickListener { cancelRefresh() }
 
         swipeRefresh.setOnRefreshListener { refreshStatus() }
 
@@ -178,7 +210,7 @@ class HomeActivity : AppCompatActivity() {
             val watchdog = Runnable {
                 if (overlay.isVisible) {
                     hideOverlay()
-                    Toast.makeText(this, R.string.still_loading, Toast.LENGTH_LONG).show()
+                    showMessage(R.string.still_loading)
                 }
             }
             initialWatchdog = watchdog
@@ -240,7 +272,7 @@ class HomeActivity : AppCompatActivity() {
         // Soft watchdog: the round is abnormally slow — tell the user, but
         // keep the overlay up (it is the "fetch in progress" indicator).
         val slow = Runnable {
-            Toast.makeText(this, R.string.connection_slow, Toast.LENGTH_LONG).show()
+            showMessage(R.string.connection_slow)
         }
         slowRunnable = slow
         mainHandler.postDelayed(slow, 180_000)
@@ -249,7 +281,7 @@ class HomeActivity : AppCompatActivity() {
         // battery endpoint + socket retry can run many minutes).
         val hard = Runnable {
             hideOverlay()
-            Toast.makeText(this, R.string.still_loading, Toast.LENGTH_LONG).show()
+            showMessage(R.string.still_loading)
         }
         hardRunnable = hard
         mainHandler.postDelayed(hard, 480_000)
@@ -286,29 +318,40 @@ class HomeActivity : AppCompatActivity() {
             // parentheses.
             val vehicleName = vehicleName(vin, modelname, nickname)
 
+            // One M3 outlined card per vehicle. The screen IS colorSurface, so
+            // an outlined card reads as the screen with a hairline outline —
+            // a filled/elevated card would look like a gray plate on white.
+            val card = MaterialCardView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { if (i > 0) topMargin = dp(12) }
+            }
+            // The card's content padding lives on the inner row: MaterialCardView
+            // pads its own background, not the child, so text would hit the outline.
+            val body = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+            }
+            card.addView(body)
+
             // Vehicle name header: name on the first line, VIN on the second.
             // Both wrap to further lines if too wide for the screen.
-            val nameRow = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, 24, 0, 8)
-            }
-            nameRow.addView(TextView(this).apply {
+            body.addView(TextView(this).apply {
                 text = vehicleName
-                textSize = 18f
-                setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+                setTextAppearance(R.style.TextAppearance_LeafConnect_VehicleName)
             })
-            nameRow.addView(TextView(this).apply {
+            body.addView(TextView(this).apply {
                 text = vin
-                textSize = 13f
-                setPadding(0, 2, 0, 0)
+                setTextAppearance(R.style.TextAppearance_LeafConnect_Vin)
+                setPadding(0, dp(2), 0, dp(8))
             })
-            container.addView(nameRow)
 
             // Live status (SOC / Temp / Range). When the data came from the
             // login flow it is already fresh; otherwise the live fetch
             // updates the text when it returns.
             val tempRecords = v.optJSONObject("interiorTempRecords")
-            // Status block: Battery/Temp share a row with the refresh arrow
+            // Status block: Battery/Temp share a row with the refresh button
             // (same round as the swipe-down refresh); Plugin/Range stay on
             // their own full-width rows below.
             // While the live fetch is in progress the card shows the loading
@@ -320,12 +363,12 @@ class HomeActivity : AppCompatActivity() {
                 formatStatusParts(initialBattery?.optJSONObject(vin), tempRecords)
             }
             val firstView = TextView(this).apply {
-                textSize = 14f
+                setTextAppearance(R.style.TextAppearance_LeafConnect_StatusPrimary)
                 text = firstText
             }
             val secondView = TextView(this).apply {
-                textSize = 14f
-                setPadding(0, 0, 0, 8)
+                setTextAppearance(R.style.TextAppearance_LeafConnect_StatusSecondary)
+                setPadding(0, 0, 0, dp(8))
                 text = secondText
                 visibility = if (secondText.isEmpty()) View.GONE else View.VISIBLE
             }
@@ -333,27 +376,19 @@ class HomeActivity : AppCompatActivity() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
-            val refreshBtn = ImageView(this).apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-                setImageResource(R.drawable.ic_refresh)
-                // Right of the text: a little left margin so it sits right
-                // next to the Battery/Temp values.
-                val d = resources.displayMetrics.density
-                setPadding((8 * d).toInt(), (8 * d).toInt(), 0, (8 * d).toInt())
-                isClickable = true
-                isFocusable = true
-                contentDescription = getString(R.string.refresh_status)
-                setOnClickListener { refreshStatus() }
-                // The arrow is the "refresh available" indicator: hidden
-                // while this vehicle's own fetch is in flight (the card shows
-                // "Refreshing..."), back when the data arrives.
-                visibility = if (showLoading) View.GONE else View.VISIBLE
-            }
+            // M3 icon button: transparent container, ripple, 48dp touch target.
+            // Inflated, not constructed: MaterialButton (1.13) has no defStyleRes
+            // constructor, so a code-built button would render flat and unstyled.
+            val refreshBtn = layoutInflater
+                .inflate(R.layout.button_refresh, statusRow, false) as MaterialButton
+            refreshBtn.contentDescription = getString(R.string.refresh_status)
+            refreshBtn.setOnClickListener { refreshStatus() }
+            // The arrow is the "refresh available" indicator: hidden
+            // while this vehicle's own fetch is in flight (the card shows
+            // "Refreshing..."), back when the data arrives.
+            refreshBtn.visibility = if (showLoading) View.GONE else View.VISIBLE
             // WRAP_CONTENT (no weight): the text takes only what it needs,
-            // so the refresh arrow sits right next to it — NOT pushed to
+            // so the refresh button sits right next to it — NOT pushed to
             // the far edge of the screen.
             statusRow.addView(firstView, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -365,24 +400,18 @@ class HomeActivity : AppCompatActivity() {
             }
             statusBlock.addView(statusRow)
             statusBlock.addView(secondView)
-            container.addView(statusBlock)
+            body.addView(statusBlock)
             entries.add(Triple(vin, tempRecords, StatusViews(firstView, secondView, refreshBtn)))
 
             // Door lock row — above the temp row, matching the original app
-            // (LOCK / UNLOCK send a default all-zero PIN authorization key).
-            val lockRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, 8, 0, 8)
-            }
+            // (lock / unlock send a default all-zero PIN authorization key).
+            val lockRow = commandRow()
             addVehicleButton(lockRow, getString(R.string.lock)) { sendDoorCommand(vin, true) }
             addVehicleButton(lockRow, getString(R.string.unlock)) { sendDoorCommand(vin, false) }
-            container.addView(lockRow)
+            body.addView(lockRow)
 
             // Button row
-            val buttonRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, 8, 0, 8)
-            }
+            val buttonRow = commandRow()
 
             addVehicleButton(buttonRow, getString(R.string.start_temp)) {
                 val token = newToken()
@@ -390,7 +419,7 @@ class HomeActivity : AppCompatActivity() {
                     val ok = client.requestClimateControlOn(token)
                     if (!token.isCancelled) {
                         setCommandStatus(getString(R.string.start_temp), ok)
-                        toast(if (ok) R.string.temperature_control_started
+                        showMessage(if (ok) R.string.temperature_control_started
                         else R.string.temperature_control_start_failed)
                     }
                 }
@@ -401,32 +430,30 @@ class HomeActivity : AppCompatActivity() {
                     val ok = client.requestClimateControlOff(token)
                     if (!token.isCancelled) {
                         setCommandStatus(getString(R.string.stop_temp), ok)
-                        toast(if (ok) R.string.temperature_control_stopped
+                        showMessage(if (ok) R.string.temperature_control_stopped
                         else R.string.temperature_control_stop_failed)
                     }
                 }
             }
 
-            container.addView(buttonRow)
+            body.addView(buttonRow)
 
             // Charging + locate row — below temp. Mirrors the original
-            // app's remoteChargingRequest; LOCATE sits next to START CHARGE.
-            val chargeRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, 8, 0, 8)
-            }
+            // app's remoteChargingRequest; Locate sits next to Start charge.
+            val chargeRow = commandRow()
             addVehicleButton(chargeRow, getString(R.string.start_charge)) {
                 val token = newToken()
                 vehicleAction(vin, getString(R.string.start_charge), token) { client ->
                     val ok = client.requestChargingStart(token)
                     if (!token.isCancelled) {
                         setCommandStatus(getString(R.string.start_charge), ok)
-                        toast(if (ok) R.string.charging_started else R.string.charging_start_failed)
+                        showMessage(if (ok) R.string.charging_started else R.string.charging_start_failed)
                     }
                 }
             }
             addVehicleButton(chargeRow, getString(R.string.locate)) { locateVehicle(vin) }
-            container.addView(chargeRow)
+            body.addView(chargeRow)
+            container.addView(card)
         }
 
         // No vehicles on the account: a centered placeholder instead of a
@@ -434,11 +461,9 @@ class HomeActivity : AppCompatActivity() {
         if (vehicles.length() == 0) {
             val empty = TextView(this).apply {
                 text = getString(R.string.no_vehicles)
-                setTextColor(ContextCompat.getColor(this@HomeActivity, R.color.text_secondary))
-                textSize = 16f
+                setTextAppearance(R.style.TextAppearance_LeafConnect_Placeholder)
                 gravity = Gravity.CENTER
-                val d = resources.displayMetrics.density
-                setPadding(0, (48 * d).toInt(), 0, 0)
+                setPadding(0, dp(48), 0, 0)
             }
             container.addView(empty)
         }
@@ -581,11 +606,20 @@ class HomeActivity : AppCompatActivity() {
         return getString(R.string.temp_status, value, unit)
     }
 
+    /** A horizontal row of command buttons inside a vehicle card. */
+    private fun commandRow(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(0, dp(4), 0, dp(4))
+    }
+
     private fun addVehicleButton(row: LinearLayout, label: String, action: () -> Unit) {
-        val btn = Button(this).apply {
-            text = label
-            setOnClickListener { action() }
-        }
+        // Filled button, the same style as every other button in the app. The
+        // layout file carries the style and the equal weight (see the note in
+        // button_command.xml: a constructed MaterialButton cannot take a style).
+        val btn = layoutInflater
+            .inflate(R.layout.button_command, row, false) as MaterialButton
+        btn.text = label
+        btn.setOnClickListener { action() }
         row.addView(btn)
     }
 
@@ -598,7 +632,7 @@ class HomeActivity : AppCompatActivity() {
         val prefs = SecurePreferences.getInstance(this)
         val accountId = prefs.getString("accountId") ?: ""
         if (accountId.isEmpty()) {
-            Toast.makeText(this, R.string.account_id_missing, Toast.LENGTH_LONG).show()
+            showMessage(R.string.account_id_missing)
             return
         }
         val label = getString(if (lock) R.string.lock else R.string.unlock)
@@ -608,7 +642,7 @@ class HomeActivity : AppCompatActivity() {
             else client.requestDoorUnlock(accountId, token)
             if (!token.isCancelled) {
                 setCommandStatus(label, ok)
-                toast(if (lock) {
+                showMessage(if (lock) {
                     if (ok) R.string.lock_command_sent else R.string.lock_failed
                 } else {
                     if (ok) R.string.unlock_command_sent else R.string.unlock_failed
@@ -645,7 +679,7 @@ class HomeActivity : AppCompatActivity() {
                 if (token.isCancelled) return@post
                 if (lat == null || lon == null) {
                     setCommandStatus(label, false)
-                    Toast.makeText(this, R.string.location_not_available, Toast.LENGTH_LONG).show()
+                    showMessage(R.string.location_not_available)
                 } else {
                     setCommandStatus(label, true)
                     openInMaps(lat, lon)
@@ -669,7 +703,7 @@ class HomeActivity : AppCompatActivity() {
             try {
                 startActivity(web)
             } catch (_: Exception) {
-                Toast.makeText(this, R.string.no_maps_app, Toast.LENGTH_LONG).show()
+                showMessage(R.string.no_maps_app)
             }
         }
     }
@@ -722,7 +756,7 @@ class HomeActivity : AppCompatActivity() {
                     // "error" when the user cancels).
                     if (myCancel == cancelGeneration && !token.isCancelled) {
                         setCommandStatus(label, false)
-                        Toast.makeText(this@HomeActivity, e.message, Toast.LENGTH_LONG).show()
+                        showMessage(e.message ?: "")
                     }
                 }
             } catch (_: Exception) {
@@ -738,23 +772,23 @@ class HomeActivity : AppCompatActivity() {
     }
 
     // Records the last requested command + outcome in the status line on top
-    // of the vehicle list — a banner in the theme's success / failure colors.
-    // The colors are resources (banner_ok_*, banner_fail_*), so dark mode gets
-    // its own container/foreground pair instead of the light-mode tints.
+    // of the vehicle list — an M3 container in the success / error colors.
+    // The container + foreground are color resources (banner_ok_*,
+    // banner_fail_*), so dark mode gets its own pair instead of the
+    // light-mode tints.
     private fun setCommandStatus(label: String, ok: Boolean) {
         mainHandler.post {
             cmdStatus.text = getString(R.string.cmd_status, label,
                 getString(if (ok) R.string.cmd_success else R.string.cmd_failed))
             cmdStatus.visibility = View.VISIBLE
-            val density = resources.displayMetrics.density
             val banner = android.graphics.drawable.GradientDrawable()
-            banner.cornerRadius = 8 * density
+            banner.cornerRadius = dp(12).toFloat()
             banner.setColor(ContextCompat.getColor(this,
                 if (ok) R.color.banner_ok_bg else R.color.banner_fail_bg))
             cmdStatus.background = banner
             cmdStatus.setPadding(
-                (12 * density).toInt(), (8 * density).toInt(),
-                (12 * density).toInt(), (8 * density).toInt()
+                dp(16), dp(10),
+                dp(16), dp(10)
             )
             cmdStatus.setTextColor(ContextCompat.getColor(this,
                 if (ok) R.color.banner_ok_fg else R.color.banner_fail_fg))
@@ -843,23 +877,131 @@ class HomeActivity : AppCompatActivity() {
         }
         hideOverlay()
         swipeRefresh.isRefreshing = false
-        Toast.makeText(this, R.string.canceled, Toast.LENGTH_SHORT).show()
+        showMessage(R.string.canceled)
     }
 
     private fun showOverlay() {
-        mainHandler.post { overlay.visibility = View.VISIBLE }
+        mainHandler.post {
+            overlay.visibility = View.VISIBLE
+            // The spinner lives inside the CANCEL button (its icon), not as a
+            // separate overlay child — the "in progress" state is the button.
+            btnCancel.setIcon(spinnerIcon)
+            spinnerIcon.start()
+        }
     }
 
     private fun hideOverlay() {
         mainHandler.post {
             overlay.visibility = View.GONE
+            btnCancel.setIcon(null)
+            spinnerIcon.stop()
             // Any overlay release retires the initial-fetch watchdog.
             initialWatchdog?.let { mainHandler.removeCallbacks(it) }
             initialWatchdog = null
         }
     }
 
-    private fun toast(res: Int) {
-        mainHandler.post { Toast.makeText(this@HomeActivity, res, Toast.LENGTH_LONG).show() }
+    /**
+     * Transient M3 feedback (Snackbar). Posted to the UI thread because worker
+     * threads report command results and watchdog notices.
+     */
+    private fun showMessage(res: Int) {
+        mainHandler.post { Snackbar.make(root, getString(res), Snackbar.LENGTH_LONG).show() }
+    }
+
+    private fun showMessage(text: String) {
+        mainHandler.post { Snackbar.make(root, text, Snackbar.LENGTH_LONG).show() }
+    }
+}
+
+/**
+ * Indeterminate ring shown as a [MaterialButton] icon while a fetch runs.
+ *
+ * Drives its own rotation with a [ValueAnimator] started/stopped by
+ * [start]/[stop], so it spins on demand without depending on the view it is
+ * attached to. Resolves colorOnPrimary from the current theme and draws with
+ * it, so the ring matches the button text in both day (white) and night (dark)
+ * themes.
+ */
+private class SpinnerRing(private val context: Context) : Drawable() {
+
+    private val metrics = context.resources.displayMetrics
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeWidth = 2f * metrics.density
+        color = ringColor(context)
+    }
+    private val arcRect = RectF()
+    private val rotation = ValueAnimator.ofInt(0, 360).apply {
+        duration = 1_100
+        repeatCount = ValueAnimator.INFINITE
+        interpolator = LinearInterpolator()
+        // Each frame, ask the host view to redraw so the arc's new angle shows.
+        addUpdateListener { invalidateSelf() }
+    }
+
+    fun start() {
+        // Re-resolve the theme color in case the theme changed since the ring
+        // was first built (the ring is a lazy singleton reused across fetches).
+        paint.color = ringColor(context)
+        if (!rotation.isRunning) rotation.start()
+    }
+
+    fun stop() {
+        if (rotation.isRunning) rotation.end()
+    }
+
+    override fun draw(abc: Canvas) {
+        val b = bounds
+        val stroke = paint.strokeWidth
+        // Inset by half the stroke on every side so the arc is centered in the
+        // bounds and the stroke's outer edge sits on the bounds edge (the old
+        // (size-stroke)/2 inset shifted the arc into the bottom-right and let
+        // it run past the bounds).
+        val inset = stroke / 2f
+        arcRect.set(b.left + inset, b.top + inset, b.right - inset, b.bottom - inset)
+        // -90 so the arc starts at the 12 o'clock position; 270 sweep leaves the
+        // characteristic "gap" of an indeterminate spinner.
+        val angle = (rotation.animatedValue as Int).toFloat() - 90f
+        abc.drawArc(arcRect, angle, 270f, false, paint)
+    }
+
+    override fun getIntrinsicWidth(): Int = (20 * metrics.density).toInt()
+
+    override fun getIntrinsicHeight(): Int = (20 * metrics.density).toInt()
+
+    override fun isStateful(): Boolean = false
+
+    override fun setAlpha(alpha: Int) {
+        paint.alpha = alpha
+    }
+
+    override fun setTint(tint: Int) {
+        paint.color = tint
+    }
+
+    override fun setTintMode(mode: PorterDuff.Mode?) {
+        if (mode != null) paint.xfermode = PorterDuffXfermode(mode)
+    }
+
+    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+
+    override fun setColorFilter(colorFilter: ColorFilter?) {
+        paint.colorFilter = colorFilter
+    }
+
+    private companion object {
+        private const val WHITE = 0xFFFFFFFF.toInt()
+
+        /** colorOnPrimary from the current theme; white as a fallback. */
+        private fun ringColor(context: Context): Int {
+            val a = context.obtainStyledAttributes(
+                intArrayOf(com.google.android.material.R.attr.colorOnPrimary)
+            )
+            val c = a.getColor(0, WHITE)
+            a.recycle()
+            return c
+        }
     }
 }

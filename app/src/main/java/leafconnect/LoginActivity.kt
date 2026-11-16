@@ -6,15 +6,15 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Patterns
 import android.view.View
-import android.widget.Button
-import android.widget.CheckBox
-import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.checkbox.MaterialCheckBox
+import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import com.leafconnect.R
 import org.json.JSONArray
 import org.json.JSONObject
@@ -35,6 +35,9 @@ class LoginActivity : AppCompatActivity() {
 
     private lateinit var session: NissanConnectSession
     private lateinit var overlay: FrameLayout
+
+    /** Root view the Snackbars (login failure, connection error) anchor to. */
+    private lateinit var root: View
 
     /** Splash fade callback, tracked so onDestroy can drop it. */
     private val splashHandler = Handler(Looper.getMainLooper())
@@ -73,13 +76,19 @@ class LoginActivity : AppCompatActivity() {
         }
 
         overlay = findViewById(R.id.overlay_login)
+        root = findViewById(R.id.root_login)
         session = NissanConnectSession(this)
 
-        val etUsername = findViewById<EditText>(R.id.et_username)
-        val etPassword = findViewById<EditText>(R.id.et_password)
-        val btnLogin = findViewById<Button>(R.id.btn_login)
-        val cbKeep = findViewById<CheckBox>(R.id.cb_keep_credentials)
-        val cbAuto = findViewById<CheckBox>(R.id.cb_auto_login)
+        // Errors are reported on the TextInputLayout (inline error under the
+        // box + red outline), not on the EditText itself: an EditText.error
+        // pops a floating bubble that hides the field's own label.
+        val tilUsername = findViewById<TextInputLayout>(R.id.til_username)
+        val tilPassword = findViewById<TextInputLayout>(R.id.til_password)
+        val etUsername = findViewById<TextInputEditText>(R.id.et_username)
+        val etPassword = findViewById<TextInputEditText>(R.id.et_password)
+        val btnLogin = findViewById<MaterialButton>(R.id.btn_login)
+        val cbKeep = findViewById<MaterialCheckBox>(R.id.cb_keep_credentials)
+        val cbAuto = findViewById<MaterialCheckBox>(R.id.cb_auto_login)
         val prefs = SecurePreferences.getInstance(this)
 
         // The whole row (box + text) toggles the checkbox. Auto-login is
@@ -106,19 +115,23 @@ class LoginActivity : AppCompatActivity() {
         // locale on a fresh install) and writes the choice the moment it
         // changes. So a sign-in always sends the region
         // shown, and soft login / re-authentication keep using it.
-        val rgRegion = findViewById<RadioGroup>(R.id.rg_region)
-        val rbRegionCanada = findViewById<RadioButton>(R.id.rb_region_canada)
-        val rbRegionUs = findViewById<RadioButton>(R.id.rb_region_us)
+        // M3 segmented buttons: exactly one button is checked (selectionRequired
+        // + singleSelection), and the listener fires for the button that became
+        // checked AND the one that dropped out — only the checked one is a
+        // choice, so isChecked guards the write.
+        val rgRegion = findViewById<MaterialButtonToggleGroup>(R.id.rg_region)
         if (AppLocale.sessionCountry(prefs) == AppLocale.COUNTRY_US) {
-            rbRegionUs.isChecked = true
+            rgRegion.check(R.id.rb_region_us)
         } else {
-            rbRegionCanada.isChecked = true
+            rgRegion.check(R.id.rb_region_canada)
         }
-        rgRegion.setOnCheckedChangeListener { _, checkedId ->
-            prefs.put(
-                AppLocale.PREF_COUNTRY,
-                if (checkedId == R.id.rb_region_us) AppLocale.COUNTRY_US else AppLocale.COUNTRY_CA,
-            )
+        rgRegion.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked) {
+                prefs.put(
+                    AppLocale.PREF_COUNTRY,
+                    if (checkedId == R.id.rb_region_us) AppLocale.COUNTRY_US else AppLocale.COUNTRY_CA,
+                )
+            }
         }
 
         // Pre-fill the saved credentials (Keep credentials) and honor
@@ -158,22 +171,22 @@ class LoginActivity : AppCompatActivity() {
             // valid login.
             val password = etPassword.text.toString()
             if (email.isEmpty()) {
-                etUsername.error = getString(R.string.email_required)
+                tilUsername.error = getString(R.string.email_required)
                 etUsername.requestFocus()
                 return@setOnClickListener
             }
             if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                etUsername.error = getString(R.string.email_invalid)
+                tilUsername.error = getString(R.string.email_invalid)
                 etUsername.requestFocus()
                 return@setOnClickListener
             }
-            etUsername.error = null
+            tilUsername.error = null
             if (password.isEmpty()) {
-                etPassword.error = getString(R.string.password_required)
+                tilPassword.error = getString(R.string.password_required)
                 etPassword.requestFocus()
                 return@setOnClickListener
             }
-            etPassword.error = null
+            tilPassword.error = null
             doLogin(email, password, keepCreds = cbKeep.isChecked)
         }
     }
@@ -284,7 +297,8 @@ class LoginActivity : AppCompatActivity() {
         runOnUiThread { overlay.visibility = View.GONE }
     }
 
+    /** Transient M3 feedback: a Snackbar anchored to the screen root. */
     private fun showError(res: Int, vararg args: String) {
-        Toast.makeText(this, getString(res, *args), Toast.LENGTH_LONG).show()
+        Snackbar.make(root, getString(res, *args), Snackbar.LENGTH_LONG).show()
     }
 }
