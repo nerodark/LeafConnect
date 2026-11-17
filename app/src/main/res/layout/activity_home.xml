@@ -112,7 +112,7 @@
             style="@style/Widget.LeafConnect.Button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@android:string/cancel" />
+            android:text="@string/cancel" />
     </LinearLayout>
 
     <!-- Splash hold: screen in the theme surface color with the app icon,

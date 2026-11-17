@@ -36,6 +36,7 @@
     <string name="location_not_available">Location not available</string>
     <string name="account_id_missing">Account ID missing — log out and back in</string>
     <string name="no_maps_app">No maps app available</string>
+    <string name="cancel">Cancel</string>
     <string name="canceled">Canceled</string>
     <string name="still_loading">Still loading — status will update when ready</string>
     <string name="connection_slow">Connection is slow — status will update when ready</string>
